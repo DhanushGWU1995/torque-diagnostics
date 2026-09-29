@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "synth": "cdktf synth",
-    "deploy": "node scripts/deploy.mjs"
+    "deploy": "ts-node --prefer-ts-exts scripts/deploy.ts"
   },
   "dependencies": {
     "@cdktf/provider-aws": "^19.49.0",

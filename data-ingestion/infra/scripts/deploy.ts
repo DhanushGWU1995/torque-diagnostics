@@ -1,18 +1,17 @@
 import { execSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 
-const infra = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const infra = resolve(__dirname, '..');
 const root = resolve(infra, '..');
 const bucket = 'dats-dhanush-f2026';
 const region = 'us-east-1';
 const stackDir = resolve(infra, 'cdktf.out/stacks/dats-dhanush-f2026');
 
-function run(command, cwd = infra) {
+function run(command: string, cwd: string = infra): void {
   execSync(command, { cwd, stdio: 'inherit', env: process.env });
 }
 
-function bucketExists() {
+function bucketExists(): boolean {
   try {
     execSync(`aws s3api head-bucket --bucket ${bucket} --region ${region}`, {
       stdio: 'pipe',
@@ -24,7 +23,7 @@ function bucketExists() {
   }
 }
 
-function stateHasBucket() {
+function stateHasBucket(): boolean {
   try {
     const listed = execSync('terraform state list', {
       cwd: stackDir,
