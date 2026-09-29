@@ -2,3 +2,11 @@
 data/abb_manuals/
 Big_Data_Lectures/
 Lecture_Notes/
+data-ingestion/admin-ui/node_modules/
+data-ingestion/admin-ui/dist/
+data-ingestion/admin-ui/.angular/
+data-ingestion/infra/node_modules/
+data-ingestion/infra/cdktf.out/
+data-ingestion/infra/.gen/
+data-ingestion/infra/terraform.tfstate
+data-ingestion/infra/terraform.tfstate.backup

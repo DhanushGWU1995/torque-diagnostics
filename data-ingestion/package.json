@@ -1,0 +1,9 @@
+{
+  "name": "torque-data-ingestion",
+  "private": true,
+  "scripts": {
+    "build:ui": "npm run build --prefix admin-ui",
+    "synth": "npm run build:ui && npm run synth --prefix infra",
+    "deploy": "npm run deploy --prefix infra"
+  }
+}

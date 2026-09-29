@@ -1,0 +1,19 @@
+{
+  "name": "dats-dhanush-f2026",
+  "private": true,
+  "scripts": {
+    "synth": "cdktf synth",
+    "deploy": "node scripts/deploy.mjs"
+  },
+  "dependencies": {
+    "@cdktf/provider-aws": "^19.49.0",
+    "cdktf": "^0.20.11",
+    "constructs": "^10.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "cdktf-cli": "^0.20.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
+  }
+}

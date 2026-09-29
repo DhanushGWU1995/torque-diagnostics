@@ -1,0 +1,96 @@
+<header class="mast">
+  <div>
+    <p class="eyebrow">Drive manual sleeve</p>
+    <h1>Torque Bay</h1>
+  </div>
+  <div class="mast-meta">
+    <span>TD-F2026</span>
+    <span>{{ bucket }}</span>
+    <span>{{ region }}</span>
+  </div>
+</header>
+
+<section class="bench">
+  <aside class="rail">
+    <p class="rail-label">Frame plate</p>
+    @for (name of families; track name) {
+      <button
+        type="button"
+        class="plate"
+        [class.on]="name === family"
+        (click)="family = name; onFamilyChange()"
+      >{{ name }}</button>
+    }
+  </aside>
+
+  <main class="ticket">
+    <div class="ticket-head">
+      <div>
+        <p class="ticket-kicker">Work order</p>
+        <h2>{{ family }}</h2>
+      </div>
+      <button type="button" class="ghost" (click)="freshBatch()" [disabled]="busy">New sleeve</button>
+    </div>
+
+    <p class="prefix">{{ prefix }}</p>
+    <p class="quiet">Each PDF is stored at that prefix plus its file name. The page writes the key. No Lambda creates the folders.</p>
+
+    <label
+      class="slot"
+      [class.hot]="dragOver"
+      (dragover)="$event.preventDefault(); dragOver = true"
+      (dragleave)="dragOver = false"
+      (drop)="onDrop($event)"
+    >
+      <span class="slot-title">Lay PDFs on the slot</span>
+      <span class="slot-sub">Several files. One sleeve. PDF only.</span>
+      <input type="file" accept="application/pdf,.pdf" multiple (change)="onPick($event)" />
+    </label>
+
+    @if (tickets.length) {
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Manual</th>
+            <th>Key under raw</th>
+            <th>State</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (ticket of tickets; track ticket.key; let i = $index) {
+            <tr [class.bad]="ticket.state === 'refused'">
+              <td>{{ i + 1 }}</td>
+              <td>{{ ticket.file.name }}</td>
+              <td class="key">{{ ticket.key }}</td>
+              <td>{{ ticket.state }}<small>{{ ticket.note }}</small></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      <p class="marker">Close-out marker: {{ markerKey }}</p>
+    }
+
+    <button type="button" class="send" (click)="send()" [disabled]="!armed || !tickets.length || busy">
+      {{ busy ? 'Seating manuals…' : 'Seat this sleeve' }}
+    </button>
+    @if (banner) {
+      <p class="banner">{{ banner }}</p>
+    }
+  </main>
+</section>
+
+<section class="gate">
+  <div>
+    <p class="rail-label">Bay key</p>
+    <p class="quiet">Paste the temporary student session. It stays in this tab and is never written into the site.</p>
+  </div>
+  <label>Access key <input [(ngModel)]="accessKeyId" autocomplete="off" /></label>
+  <label>Secret <input [(ngModel)]="secretAccessKey" type="password" autocomplete="off" /></label>
+  <label>Session token <input [(ngModel)]="sessionToken" autocomplete="off" /></label>
+  <div class="gate-actions">
+    <button type="button" (click)="arm()">Arm bay</button>
+    <button type="button" class="ghost" (click)="disarm()">Clear</button>
+    <span class="lamp" [class.lit]="armed">{{ armed ? 'armed' : 'dark' }}</span>
+  </div>
+</section>

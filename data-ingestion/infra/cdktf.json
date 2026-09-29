@@ -1,0 +1,9 @@
+{
+  "language": "typescript",
+  "app": "npx ts-node --prefer-ts-exts main.ts",
+  "projectId": "dats-dhanush-f2026",
+  "sendCrashReports": false,
+  "terraformProviders": [],
+  "terraformModules": [],
+  "context": {}
+}
