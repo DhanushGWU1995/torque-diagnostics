@@ -2,10 +2,14 @@
 """Chunk raw ABB PDFs from S3 into Parquet shards.
 
 Credentials come from the environment or the instance role. This file does
-not contain an access key. On the EC2 instance:
+not contain an access key. From a clone of the repo, at the repository root:
+
+    uv sync
+    uv run python data-preprocessing/chunk_raw_pdfs.py
+
+On the EC2 instance, after Tesseract is installed:
 
     sudo apt-get install -y tesseract-ocr
-    python3 -m pip install -r requirements.txt
     python3 chunk_raw_pdfs.py
 
 Set MAX_FILES below, or pass it in the environment. A run checks that

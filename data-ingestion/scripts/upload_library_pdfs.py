@@ -2,10 +2,13 @@
 """Download the ABB raw PDFs and store them in the course bucket.
 
 Credentials come from the environment or the instance role. This file does
-not contain an access key. On a new machine:
+not contain an access key. From a clone of the repo, at the repository root:
 
-    python3 -m pip install -r requirements.txt
-    python3 upload_library_pdfs.py
+    uv sync
+    uv run python data-ingestion/scripts/upload_library_pdfs.py
+
+On a machine that already has the packages installed, `python3 upload_library_pdfs.py`
+from this directory is enough.
 
 The CSV ABB_100GB_Download_List.csv is read from the current directory, or
 from the same directory as this script. A PDF already stored at its key is
