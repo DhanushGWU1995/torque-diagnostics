@@ -12,3 +12,6 @@ data-ingestion/infra/*.tfstate
 data-ingestion/infra/*.tfstate.backup
 data-ingestion/scripts/__pycache__/
 data-preprocessing/__pycache__/
+chunk_status.txt
+chunk_remaining.txt
+chunk_failed.txt

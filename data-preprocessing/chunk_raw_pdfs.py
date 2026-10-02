@@ -8,6 +8,15 @@ not contain an access key. On the EC2 instance:
     python3 -m pip install -r requirements.txt
     python3 chunk_raw_pdfs.py
 
+Set MAX_FILES below, or pass it in the environment. A run checks that
+many raw PDFs, converts the ones that do not already have a Parquet
+shard, and then stops so a long job can finish in safe batches. The
+keys still left are rewritten to chunk_remaining.txt. A shard is
+skipped only when its Parquet footer is intact. A listed object that
+is truncated or still incomplete is converted again. Progress counts
+are written to chunk_status.txt. Leave MAX_FILES unset to process every
+PDF that does not already have a shard.
+
 Each PDF under
 
     s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/raw/<family>/<document-kind>/<document_id>.pdf
@@ -18,8 +27,9 @@ is written to
 
 The text layer is used when a page has text. OCR runs only when that layer
 is nearly empty. A passage never crosses a page. A PDF of 200 MB or more is
-chunked alone. Smaller PDFs run two at a time, in separate processes. A
-shard that is already in the bucket is skipped.
+chunked alone. Smaller PDFs run two at a time, in separate processes.
+A shard is skipped only when the object in S3 is a finished Parquet
+file. An incomplete object is written again.
 """
 
 from __future__ import annotations
@@ -34,7 +44,7 @@ import re
 import sys
 import tempfile
 import traceback
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from multiprocessing import get_context
 from pathlib import Path
 from typing import NamedTuple
@@ -44,12 +54,20 @@ REGION = "us-east-1"
 RAW_ROOT = "dhanush.mathivanan@gwu.edu/torque-diagnostics/raw"
 CHUNKS_ROOT = "dhanush.mathivanan@gwu.edu/torque-diagnostics/chunks"
 WORKERS = 2
+# None processes every PDF that does not already have a Parquet shard.
+# A positive number is one safe batch: that many remaining PDFs are
+# checked, converted, and then the run stops. The next run continues
+# with whatever chunk_remaining.txt still lists. The environment
+# variable MAX_FILES overrides this value.
+MAX_FILES: int | None = None
 LARGE_FILE_BYTES = 200 * 1024 * 1024
 MIN_TEXT_CHARS = 40
 MAX_PASSAGE_CHARS = 3500
 OCR_DPI = 150
 TASKS_PER_CHILD = 25
 FAILED_NAME = "chunk_failed.txt"
+STATUS_NAME = "chunk_status.txt"
+REMAINING_NAME = "chunk_remaining.txt"
 FAMILY_ORDER = (
     "ACS880-04XT",
     "ACS880-104",
@@ -247,15 +265,104 @@ def list_objects(s3, prefix: str) -> list[dict]:
     return found
 
 
+def file_limit() -> int | None:
+    raw = os.environ.get("MAX_FILES", "").strip()
+    if not raw:
+        return MAX_FILES
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError("MAX_FILES must be a positive integer") from exc
+    if value < 1:
+        raise ValueError("MAX_FILES must be a positive integer")
+    return value
+
+
+def ordered_tasks(large: list[Task], small: list[Task]) -> list[Task]:
+    return sorted(
+        [*large, *small],
+        key=lambda task: (family_rank(task.family), task.size, task.document_id),
+    )
+
+
+def take_batch(queue: list[Task], max_files: int | None) -> list[Task]:
+    if max_files is None:
+        return list(queue)
+    return list(queue[:max_files])
+
+
+def split_for_workers(tasks: list[Task]) -> tuple[list[Task], list[Task]]:
+    alone = [task for task in tasks if runs_alone(task.size)]
+    paired = [task for task in tasks if not runs_alone(task.size)]
+    alone.sort(key=lambda task: (family_rank(task.family), -task.size))
+    paired.sort(key=lambda task: (family_rank(task.family), task.document_id))
+    return alone, paired
+
+
+def resume_queue(discovered: list[Task], path: Path) -> list[Task]:
+    by_key = {task.pdf_key: task for task in discovered}
+    if not path.is_file():
+        return list(discovered)
+    saved = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    queue = [by_key[key] for key in saved if key in by_key]
+    seen = {task.pdf_key for task in queue}
+    queue.extend(task for task in discovered if task.pdf_key not in seen)
+    return queue
+
+
+def write_remaining(path: Path, keys: list[str]) -> None:
+    path.write_text("".join(f"{key}\n" for key in keys), encoding="utf-8")
+
+
+def settle_key(keys: list[str], pdf_key: str, status: str) -> None:
+    if pdf_key not in keys:
+        return
+    keys.remove(pdf_key)
+    if status == "failed":
+        keys.append(pdf_key)
+
+
+def parquet_tail_complete(size: int, tail: bytes) -> bool:
+    if size < 12 or len(tail) < 8 or tail[-4:] != b"PAR1":
+        return False
+    footer_len = int.from_bytes(tail[-8:-4], "little")
+    return 8 <= footer_len <= size - 8
+
+
+def finished_shard_keys(s3, items: list[dict]) -> set[str]:
+    shards = [item for item in items if str(item.get("Key", "")).endswith(".parquet")]
+
+    def one(item: dict) -> str | None:
+        key = str(item["Key"])
+        size = int(item.get("Size") or 0)
+        if size < 12:
+            log.warning("incomplete shard will be rewritten: %s", key)
+            return None
+        try:
+            response = s3.get_object(Bucket=BUCKET, Key=key, Range="bytes=-8")
+            tail = response["Body"].read()
+        except Exception:
+            log.warning("shard tail could not be read, will rewrite %s", key)
+            return None
+        if parquet_tail_complete(size, tail):
+            return key
+        log.warning("incomplete shard will be rewritten: %s", key)
+        return None
+
+    if not shards:
+        return set()
+    finished: set[str] = set()
+    with ThreadPoolExecutor(max_workers=min(8, len(shards))) as pool:
+        for key in pool.map(one, shards):
+            if key:
+                finished.add(key)
+    return finished
+
+
 def discover(s3, batch_id: str) -> tuple[list[Task], list[Task], int]:
-    existing = {
-        item["Key"]
-        for item in list_objects(s3, CHUNKS_ROOT)
-        if item["Key"].endswith(".parquet")
-    }
+    existing = finished_shard_keys(s3, list_objects(s3, CHUNKS_ROOT))
     large: list[Task] = []
     small: list[Task] = []
-    skipped = 0
     seen_out: set[str] = set()
     for item in list_objects(s3, RAW_ROOT):
         parsed = parse_raw_key(item["Key"])
@@ -264,7 +371,6 @@ def discover(s3, batch_id: str) -> tuple[list[Task], list[Task], int]:
         family, document_id = parsed
         output = parquet_key(family, document_id)
         if output in existing or output in seen_out:
-            skipped += 1
             continue
         seen_out.add(output)
         task = Task(item["Key"], int(item["Size"]), family, document_id, output, batch_id)
@@ -274,7 +380,7 @@ def discover(s3, batch_id: str) -> tuple[list[Task], list[Task], int]:
             small.append(task)
     large.sort(key=lambda task: (family_rank(task.family), -task.size))
     small.sort(key=lambda task: (family_rank(task.family), task.document_id))
-    return large, small, skipped
+    return large, small, len(existing)
 
 
 def ocr_page(page) -> str:
@@ -395,16 +501,52 @@ def record_failure(path: Path, result: Result) -> None:
         handle.write(f"{result.pdf_key}\t{line}\n")
 
 
-def accept(result: Result, failed_path: Path, counts: dict[str, int], total: int) -> None:
+def write_status(path: Path, fields: dict[str, object]) -> None:
+    body = "\n".join(f"{key}={value}" for key, value in fields.items()) + "\n"
+    path.write_text(body, encoding="utf-8")
+
+
+def accept(
+    result: Result,
+    failed_path: Path,
+    status_path: Path,
+    remaining_path: Path,
+    remaining_keys: list[str],
+    counts: dict[str, int],
+    total: int,
+    already_parquet: int,
+) -> None:
     counts[result.status] = counts.get(result.status, 0) + 1
     done = sum(counts.values())
+    settle_key(remaining_keys, result.pdf_key, result.status)
+    write_remaining(remaining_path, remaining_keys)
+    shards = already_parquet + counts.get("stored", 0) + counts.get("empty", 0)
+    write_status(
+        status_path,
+        {
+            "parquet_shards": shards,
+            "remaining": len(remaining_keys),
+            "this_run_completed": done,
+            "this_run_total": total,
+            "stored": counts.get("stored", 0),
+            "empty": counts.get("empty", 0),
+            "failed": counts.get("failed", 0),
+        },
+    )
     if result.status == "failed":
         record_failure(failed_path, result)
-        log.error("%s/%s failed %s", done, total, result.pdf_key)
+        log.error(
+            "parquet_shards=%s this_run=%s/%s failed %s",
+            shards,
+            done,
+            total,
+            result.pdf_key,
+        )
         log.error("%s", result.error)
         return
     log.info(
-        "%s/%s %s pages=%s passages=%s %s",
+        "parquet_shards=%s this_run=%s/%s %s pages=%s passages=%s %s",
+        shards,
         done,
         total,
         result.status,
@@ -422,21 +564,47 @@ def main() -> int:
     import boto3
     from datetime import datetime, timezone
 
+    try:
+        limit = file_limit()
+    except ValueError as exc:
+        log.error("%s", exc)
+        return 1
+
     batch_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     s3 = boto3.client("s3", region_name=REGION)
     try:
-        large, small, skipped = discover(s3, batch_id)
+        large, small, already_parquet = discover(s3, batch_id)
     except Exception as exc:
         log.error("Cannot list s3://%s/%s/: %s", BUCKET, RAW_ROOT, exc)
         return 1
 
-    total = len(large) + len(small)
+    remaining_path = Path.cwd() / REMAINING_NAME
+    queue = resume_queue(ordered_tasks(large, small), remaining_path)
+    remaining_keys = [task.pdf_key for task in queue]
+    write_remaining(remaining_path, remaining_keys)
+    batch = take_batch(queue, limit)
+    large, small = split_for_workers(batch)
+    total = len(batch)
     log.info(
-        "batch=%s skipped=%s alone=%s paired=%s",
+        "batch=%s parquet_shards=%s remaining=%s this_run=%s max_files=%s",
         batch_id,
-        skipped,
-        len(large),
-        len(small),
+        already_parquet,
+        len(remaining_keys),
+        total,
+        "all" if limit is None else limit,
+    )
+    status_path = Path.cwd() / STATUS_NAME
+    write_status(
+        status_path,
+        {
+            "parquet_shards": already_parquet,
+            "remaining": len(remaining_keys),
+            "this_run_completed": 0,
+            "this_run_total": total,
+            "stored": 0,
+            "empty": 0,
+            "failed": 0,
+        },
     )
     if total == 0:
         return 0
@@ -444,7 +612,16 @@ def main() -> int:
     failed_path = Path.cwd() / FAILED_NAME
     counts: dict[str, int] = {}
     for task in large:
-        accept(chunk_one(task), failed_path, counts, total)
+        accept(
+            chunk_one(task),
+            failed_path,
+            status_path,
+            remaining_path,
+            remaining_keys,
+            counts,
+            total,
+            already_parquet,
+        )
     if small:
         context = get_context("spawn")
         pool_args: dict[str, object] = {"max_workers": WORKERS, "mp_context": context}
@@ -453,10 +630,21 @@ def main() -> int:
         with ProcessPoolExecutor(**pool_args) as pool:
             futures = [pool.submit(chunk_one, task) for task in small]
             for future in as_completed(futures):
-                accept(future.result(), failed_path, counts, total)
+                accept(
+                    future.result(),
+                    failed_path,
+                    status_path,
+                    remaining_path,
+                    remaining_keys,
+                    counts,
+                    total,
+                    already_parquet,
+                )
 
     log.info(
-        "finished stored=%s empty=%s failed=%s",
+        "finished parquet_shards=%s remaining=%s stored=%s empty=%s failed=%s",
+        already_parquet + counts.get("stored", 0) + counts.get("empty", 0),
+        len(remaining_keys),
         counts.get("stored", 0),
         counts.get("empty", 0),
         counts.get("failed", 0),
