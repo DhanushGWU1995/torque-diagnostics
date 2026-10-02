@@ -278,11 +278,11 @@ def discover(s3, batch_id: str) -> tuple[list[Task], list[Task], int]:
 
 
 def ocr_page(page) -> str:
-    import fitz
+    import pymupdf
     import pytesseract
     from PIL import Image
 
-    matrix = fitz.Matrix(OCR_DPI / 72, OCR_DPI / 72)
+    matrix = pymupdf.Matrix(OCR_DPI / 72, OCR_DPI / 72)
     pix = page.get_pixmap(matrix=matrix, alpha=False)
     try:
         with Image.open(io.BytesIO(pix.tobytes("png"))) as image:
@@ -340,7 +340,7 @@ def write_parquet(rows: list[dict[str, object]], path: str) -> None:
 
 def chunk_one(task: Task) -> Result:
     import boto3
-    import fitz
+    import pymupdf
 
     pdf_path = ""
     parquet_path = ""
@@ -352,7 +352,7 @@ def chunk_one(task: Task) -> Result:
         with open(pdf_path, "rb") as handle:
             if handle.read(5) != b"%PDF-":
                 raise ValueError("object is not a PDF")
-        document = fitz.open(pdf_path)
+        document = pymupdf.open(pdf_path)
         try:
             pages = [(number, page_text(page)) for number, page in enumerate(document, start=1)]
         finally:
