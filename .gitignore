@@ -8,5 +8,7 @@ data-ingestion/admin-ui/.angular/
 data-ingestion/infra/node_modules/
 data-ingestion/infra/cdktf.out/
 data-ingestion/infra/.gen/
-data-ingestion/infra/terraform.tfstate
-data-ingestion/infra/terraform.tfstate.backup
+data-ingestion/infra/*.tfstate
+data-ingestion/infra/*.tfstate.backup
+data-ingestion/scripts/__pycache__/
+data-preprocessing/__pycache__/
