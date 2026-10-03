@@ -16,17 +16,18 @@ skipped. Each new file lands at:
 
     s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/raw/<family>/<document-kind>/<document_id>.pdf
 
-Family is taken from the title: an ACS880 frame, firmware-AINLX,
-firmware-YINLX, or library. Document kind is the CSV kind, such as manual
-or data-sheet. A _COMPLETE marker is written in each folder when every row
-has a PDF in S3.
+Family comes from asset_layout.py. An ACS880 frame or a firmware manual
+keeps its own folder. A technical file whose title names another series,
+such as COM600 or REC615, uses that series. Catalogues, articles, and
+brochures stay in library, as do technical files with no series in the
+title. A _COMPLETE marker is written in each folder when every row has a
+PDF in S3.
 """
 
 from __future__ import annotations
 
 import csv
 import logging
-import re
 import sys
 import threading
 import time
@@ -39,8 +40,22 @@ from urllib.request import Request, urlopen
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
+
+def _import_layout() -> None:
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / "asset_layout.py").is_file():
+            root = str(parent)
+            if root not in sys.path:
+                sys.path.insert(0, root)
+            return
+    raise ImportError("asset_layout.py was not found above this script")
+
+
+_import_layout()
+from asset_layout import RAW_ROOT, asset_family as family_for, document_kind_folder, raw_key
+
 BUCKET = "dats-nlp"
-RAW_ROOT = "dhanush.mathivanan@gwu.edu/torque-diagnostics/raw"
 REGION = "us-east-1"
 CSV_NAME = "ABB_100GB_Download_List.csv"
 WORKERS = 4
@@ -49,20 +64,6 @@ ATTEMPTS = 4
 MARKER = "_COMPLETE"
 PDF_MAGIC = b"%PDF-"
 USER_AGENT = "TorqueDiagnostics/1.0"
-FRAMES = (
-    "ACS880-04XT",
-    "ACS880-104",
-    "ACS880-107",
-    "ACS880-01",
-    "ACS880-04",
-    "ACS880-07",
-    "ACS880-11",
-    "ACS880-14",
-    "ACS880-17",
-    "ACS880-31",
-    "ACS880-34",
-    "ACS880-37",
-)
 
 log = logging.getLogger("library-upload")
 
@@ -104,27 +105,10 @@ def csv_path() -> Path:
     return beside_script
 
 
-def asset_family(row: dict[str, str]) -> str:
-    text = f"{row.get('title', '')} {row.get('document_id', '')}".upper()
-    if "YINLX" in text:
-        return "firmware-YINLX"
-    if "AINLX" in text:
-        return "firmware-AINLX"
-    for frame in FRAMES:
-        if frame in text:
-            return frame
-    return "library"
-
-
-def document_kind_folder(row: dict[str, str]) -> str:
-    kind = (row.get("document_kind") or "unknown").strip().lower()
-    slug = re.sub(r"[^a-z0-9]+", "-", kind).strip("-")
-    return slug or "unknown"
-
-
 def object_key(row: dict[str, str]) -> str:
-    clean = row["document_id"].strip().replace("/", "_").replace(" ", "_")
-    return f"{RAW_ROOT}/{asset_family(row)}/{document_kind_folder(row)}/{clean}.pdf"
+    family = family_for(row.get("title", ""), row.get("document_id", ""), row.get("document_kind", ""))
+    kind = document_kind_folder(row.get("document_kind", ""))
+    return raw_key(family, kind, row["document_id"])
 
 
 def load_rows(path: Path) -> list[dict[str, str]]:

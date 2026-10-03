@@ -36,7 +36,14 @@ uv run python data-ingestion/scripts/upload_library_pdfs.py
 uv run python data-preprocessing/chunk_raw_pdfs.py
 ```
 
-The upload script reads `ABB_100GB_Download_List.csv` and stores PDFs under `s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/raw/`. A PDF already at its key is skipped.
+The upload script reads `ABB_100GB_Download_List.csv` and stores each PDF at `raw/<equipment>/<document-kind>/<document_id>.pdf`. The equipment folder is the ACS880 frame, a firmware manual, or another series named in the title, such as COM600 or REC615. Catalogues, articles, brochures, and technical files with no series in the title stay in `library`. A PDF already at its key is skipped.
+
+`rehome_raw_pdfs.py` copies objects that are still under the old `library` key onto that layout and deletes the old key after the copy. It does not download the PDFs. A shard already written as `asset_family=library` is rewritten with the series name. `DRY_RUN=1` prints the moves and changes nothing.
+
+```bash
+DRY_RUN=1 uv run python data-ingestion/scripts/rehome_raw_pdfs.py
+uv run python data-ingestion/scripts/rehome_raw_pdfs.py
+```
 
 The chunking script reads that raw prefix and writes Parquet under `chunks/asset_family=<family>/`. A shard is skipped only when its Parquet footer is intact. Set `MAX_FILES` to convert one batch and then stop. `MAX_FILES=100` is a safe batch on the project EC2. Leave it unset to process every remaining PDF.
 

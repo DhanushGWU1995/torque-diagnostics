@@ -29,6 +29,11 @@ is written to
 
     s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/chunks/asset_family=<family>/<document_id>.parquet
 
+The family is the raw folder name. asset_layout.py names that folder from
+the title: an ACS880 frame, a firmware manual, or another series such as
+COM600. The shard uses the same name, so a question for one series reads
+that series only. library is the leftover folder and is queued last.
+
 The text layer is used when a page has text. OCR runs only when that layer
 is nearly empty. A passage never crosses a page. A PDF of 200 MB or more is
 chunked alone. Smaller PDFs run two at a time, in separate processes.
@@ -53,6 +58,21 @@ from multiprocessing import get_context
 from pathlib import Path
 from typing import NamedTuple
 
+
+def _import_layout() -> None:
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / "asset_layout.py").is_file():
+            root = str(parent)
+            if root not in sys.path:
+                sys.path.insert(0, root)
+            return
+    raise ImportError("asset_layout.py was not found above this script")
+
+
+_import_layout()
+from asset_layout import family_rank
+
 BUCKET = "dats-nlp"
 REGION = "us-east-1"
 RAW_ROOT = "dhanush.mathivanan@gwu.edu/torque-diagnostics/raw"
@@ -68,27 +88,9 @@ LARGE_FILE_BYTES = 200 * 1024 * 1024
 MIN_TEXT_CHARS = 40
 MAX_PASSAGE_CHARS = 3500
 OCR_DPI = 150
-TASKS_PER_CHILD = 25
 FAILED_NAME = "chunk_failed.txt"
 STATUS_NAME = "chunk_status.txt"
 REMAINING_NAME = "chunk_remaining.txt"
-FAMILY_ORDER = (
-    "ACS880-04XT",
-    "ACS880-104",
-    "ACS880-107",
-    "ACS880-01",
-    "ACS880-04",
-    "ACS880-07",
-    "ACS880-11",
-    "ACS880-14",
-    "ACS880-17",
-    "ACS880-31",
-    "ACS880-34",
-    "ACS880-37",
-    "firmware-YINLX",
-    "firmware-AINLX",
-    "library",
-)
 
 FAULT_RE = re.compile(
     r"\b(?:fault|warning|alarm|aux(?:iliary)?\s+code|event)"
@@ -135,15 +137,6 @@ class Result(NamedTuple):
 
 def runs_alone(size: int) -> bool:
     return size >= LARGE_FILE_BYTES
-
-
-def family_rank(family: str) -> tuple[int, str]:
-    if family == "library":
-        return (10_000, family)
-    try:
-        return (FAMILY_ORDER.index(family), family)
-    except ValueError:
-        return (9_000, family)
 
 
 def parse_raw_key(key: str) -> tuple[str, str] | None:
@@ -628,10 +621,7 @@ def main() -> int:
         )
     if small:
         context = get_context("spawn")
-        pool_args: dict[str, object] = {"max_workers": WORKERS, "mp_context": context}
-        if sys.version_info >= (3, 11):
-            pool_args["max_tasks_per_child"] = TASKS_PER_CHILD
-        with ProcessPoolExecutor(**pool_args) as pool:
+        with ProcessPoolExecutor(max_workers=WORKERS, mp_context=context) as pool:
             futures = [pool.submit(chunk_one, task) for task in small]
             for future in as_completed(futures):
                 accept(
