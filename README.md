@@ -13,14 +13,7 @@ That creates `.venv` and installs boto3, Polars, PyArrow, PyMuPDF, Pillow, and p
 
 ### After uv sync
 
-`uv sync` does not install the Tesseract program. The chunking script needs it for pages whose text layer is nearly empty. Install it once on the machine:
-
-```bash
-brew install tesseract          # macOS
-sudo apt-get install -y tesseract-ocr   # Ubuntu
-```
-
-Export a current AWS session in the same shell. The scripts do not contain access keys.
+Export a current AWS session in the same shell. The scripts do not contain access keys. The chunking script reads the text already stored in each PDF page. Drawing pages are not scanned.
 
 ```bash
 export AWS_ACCESS_KEY_ID='...'

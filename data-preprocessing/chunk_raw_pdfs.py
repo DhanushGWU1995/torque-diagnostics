@@ -7,9 +7,8 @@ not contain an access key. From a clone of the repo, at the repository root:
     uv sync
     uv run python data-preprocessing/chunk_raw_pdfs.py
 
-On the EC2 instance, after Tesseract is installed:
+On the EC2 instance:
 
-    sudo apt-get install -y tesseract-ocr
     python3 chunk_raw_pdfs.py
 
 Set MAX_FILES below, or pass it in the environment. A run checks that
@@ -35,9 +34,9 @@ the title: an ACS880 frame, a firmware manual, or another series such as
 COM600. The shard uses the same name, so a question for one series reads
 that series only. library is the leftover folder and is queued last.
 
-The text layer is used when a page has text. OCR runs only when that layer
-is nearly empty. A passage never crosses a page. A PDF of 200 MB or more is
-chunked alone. Smaller PDFs run two at a time, in separate processes.
+Each page keeps its text layer. Drawing pages are not sent to Tesseract.
+A passage never crosses a page. A PDF of 200 MB or more is chunked alone.
+Smaller PDFs run two at a time, in separate processes.
 A shard is skipped only when the object in S3 is a finished Parquet
 file. An incomplete object is written again.
 """
@@ -48,7 +47,6 @@ import os
 
 os.environ.setdefault("POLARS_MAX_THREADS", "1")
 
-import io
 import logging
 import re
 import sys
@@ -86,9 +84,7 @@ WORKERS = 2
 # variable MAX_FILES overrides this value.
 MAX_FILES: int | None = None
 LARGE_FILE_BYTES = 200 * 1024 * 1024
-MIN_TEXT_CHARS = 40
 MAX_PASSAGE_CHARS = 3500
-OCR_DPI = 150
 FAILED_NAME = "chunk_failed.txt"
 STATUS_NAME = "chunk_status.txt"
 REMAINING_NAME = "chunk_remaining.txt"
@@ -387,25 +383,8 @@ def discover(s3, batch_id: str) -> tuple[list[Task], list[Task], int]:
     return large, small, len(existing)
 
 
-def ocr_page(page) -> str:
-    import pymupdf
-    import pytesseract
-    from PIL import Image
-
-    matrix = pymupdf.Matrix(OCR_DPI / 72, OCR_DPI / 72)
-    pix = page.get_pixmap(matrix=matrix, alpha=False)
-    try:
-        with Image.open(io.BytesIO(pix.tobytes("png"))) as image:
-            return pytesseract.image_to_string(image, lang="eng")
-    finally:
-        pix = None
-
-
 def page_text(page) -> str:
-    text = page.get_text("text") or ""
-    if len(text.strip()) >= MIN_TEXT_CHARS:
-        return text
-    return ocr_page(page)
+    return page.get_text("text") or ""
 
 
 def write_parquet(rows: list[dict[str, object]], path: str) -> None:
@@ -488,17 +467,6 @@ def chunk_one(task: Task) -> Result:
                 os.unlink(path)
 
 
-def require_tesseract() -> bool:
-    import pytesseract
-
-    try:
-        pytesseract.get_tesseract_version()
-    except pytesseract.TesseractNotFoundError:
-        log.error("tesseract-ocr is not installed. Install it with apt, then run again.")
-        return False
-    return True
-
-
 def record_failure(path: Path, result: Result) -> None:
     line = " ".join(result.error.split())[:500]
     with path.open("a", encoding="utf-8") as handle:
@@ -562,8 +530,6 @@ def accept(
 
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
-    if not require_tesseract():
-        return 1
 
     import boto3
     from datetime import datetime, timezone
