@@ -14,12 +14,13 @@ On the EC2 instance, after Tesseract is installed:
 
 Set MAX_FILES below, or pass it in the environment. A run checks that
 many raw PDFs, converts the ones that do not already have a Parquet
-shard, and then stops so a long job can finish in safe batches. The
-keys still left are rewritten to chunk_remaining.txt. A shard is
-skipped only when its Parquet footer is intact. A listed object that
-is truncated or still incomplete is converted again. Progress counts
-are written to chunk_status.txt. Leave MAX_FILES unset to process every
-PDF that does not already have a shard.
+shard, and then stops so a long job can finish in safe batches. At the
+start it rewrites chunk_remaining.txt from the raw keys that still have
+no finished shard, and writes the counts to chunk_status.txt. A saved
+line whose object was moved is dropped and is not downloaded. A shard
+is skipped only when its Parquet footer is intact. A listed object that
+is truncated or still incomplete is converted again. Leave MAX_FILES
+unset to process every PDF that does not already have a shard.
 
 Each PDF under
 
@@ -297,14 +298,20 @@ def split_for_workers(tasks: list[Task]) -> tuple[list[Task], list[Task]]:
 
 
 def resume_queue(discovered: list[Task], path: Path) -> list[Task]:
-    by_key = {task.pdf_key: task for task in discovered}
+    """Queue the raw PDFs that are in S3 and still have no finished shard.
+
+    chunk_remaining.txt is rewritten from that live list. A line that names
+    a key moved to another folder is not downloaded.
+    """
+    live = list(discovered)
     if not path.is_file():
-        return list(discovered)
+        return live
     saved = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-    queue = [by_key[key] for key in saved if key in by_key]
-    seen = {task.pdf_key for task in queue}
-    queue.extend(task for task in discovered if task.pdf_key not in seen)
-    return queue
+    live_keys = {task.pdf_key for task in live}
+    stale = [key for key in saved if key not in live_keys]
+    if stale:
+        log.info("dropped %s keys from %s that are not in the raw bucket", len(stale), path.name)
+    return live
 
 
 def write_remaining(path: Path, keys: list[str]) -> None:

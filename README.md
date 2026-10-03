@@ -36,16 +36,9 @@ uv run python data-ingestion/scripts/upload_library_pdfs.py
 uv run python data-preprocessing/chunk_raw_pdfs.py
 ```
 
-The upload script reads `ABB_100GB_Download_List.csv` and stores each PDF at `raw/<equipment>/<document-kind>/<document_id>.pdf`. The equipment folder is the ACS880 frame, a firmware manual, or another series named in the title, such as COM600 or REC615. Catalogues, articles, brochures, and technical files with no series in the title stay in `library`. A PDF already at its key is skipped.
+The upload script reads `ABB_100GB_Download_List.csv` from the current directory or from the repository root. It stores each PDF at `raw/<equipment>/<document-kind>/<document_id>.pdf`. The equipment folder is the ACS880 frame, a firmware manual, or another series named in the title, such as COM600 or REC615. Catalogues, articles, brochures, and technical files with no series in the title stay in `library`. A PDF already at that key is skipped, so running the script again does not download it a second time.
 
-`rehome_raw_pdfs.py` copies objects that are still under the old `library` key onto that layout and deletes the old key after the copy. It does not download the PDFs. A shard already written as `asset_family=library` is rewritten with the series name. `DRY_RUN=1` prints the moves and changes nothing.
-
-```bash
-DRY_RUN=1 uv run python data-ingestion/scripts/rehome_raw_pdfs.py
-uv run python data-ingestion/scripts/rehome_raw_pdfs.py
-```
-
-The chunking script reads that raw prefix and writes Parquet under `chunks/asset_family=<family>/`. A shard is skipped only when its Parquet footer is intact. Set `MAX_FILES` to convert one batch and then stop. `MAX_FILES=100` is a safe batch on the project EC2. Leave it unset to process every remaining PDF.
+The chunking script reads those raw keys and writes Parquet under `chunks/asset_family=<family>/`, using the equipment folder as the family. A shard is skipped only when its Parquet footer is intact. At the start of a run it rewrites `chunk_remaining.txt` from the raw keys that still have no finished shard, and writes the counts to `chunk_status.txt`. A key that is no longer in the bucket is left off that list. Set `MAX_FILES` to convert one batch and then stop. `MAX_FILES=100` is a safe batch on the project EC2. Leave it unset to process every remaining PDF.
 
 ```bash
 MAX_FILES=100 uv run python data-preprocessing/chunk_raw_pdfs.py

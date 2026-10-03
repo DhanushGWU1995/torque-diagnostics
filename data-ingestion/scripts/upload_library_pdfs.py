@@ -11,8 +11,9 @@ On a machine that already has the packages installed, `python3 upload_library_pd
 from this directory is enough.
 
 The CSV ABB_100GB_Download_List.csv is read from the current directory, or
-from the same directory as this script. A PDF already stored at its key is
-skipped. Each new file lands at:
+from the repository root above this script. A PDF already stored at its
+key is skipped, so a second run does not download it again. Each new file
+lands at:
 
     s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/raw/<family>/<document-kind>/<document_id>.pdf
 
@@ -98,11 +99,13 @@ class HeadThenBody:
 def csv_path() -> Path:
     if len(sys.argv) > 1:
         return Path(sys.argv[1])
-    beside_script = Path(__file__).resolve().parent / CSV_NAME
-    in_cwd = Path.cwd() / CSV_NAME
-    if in_cwd.is_file():
-        return in_cwd
-    return beside_script
+    here = Path(__file__).resolve()
+    candidates = [Path.cwd() / CSV_NAME, here.parent / CSV_NAME]
+    candidates.extend(parent / CSV_NAME for parent in here.parents)
+    for path in candidates:
+        if path.is_file():
+            return path
+    return Path.cwd() / CSV_NAME
 
 
 def object_key(row: dict[str, str]) -> str:
