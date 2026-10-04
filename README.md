@@ -45,7 +45,7 @@ After chunking has finished, DuckDB reads the shards and writes a coverage count
 uv run python data-preprocessing/coverage_duckdb.py
 ```
 
-The indexing step tokenizes those passages. It does not embed them yet. The identifier tokenizer keeps a frame, firmware name, fault code, parameter, and document id whole. The BM25 tokenizer lowercases, keeps a hyphenated token and its pieces, and does not stem. Run one equipment folder first.
+The indexing step tokenizes those passages. It does not embed them yet. The identifier tokenizer keeps a frame, firmware name, fault code, parameter, and document id whole. The same longest match covers every drive family, so ACS580-01 reads the ACS580 folder and ACS880-04 reads the ACS880-04 folder. A drive or product whose manuals stayed in library, such as ACH550 or IRC5, reads library. The BM25 tokenizer lowercases, keeps a hyphenated token and its pieces, and does not stem. Run one equipment folder first.
 
 ```bash
 uv run python data-indexing/manual_tokens.py
