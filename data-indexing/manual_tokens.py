@@ -114,6 +114,155 @@ _LIBRARY_NAMES = (
     "XT6",
     "XT7",
 )
+# Folder names that exist under chunks/asset_family=. Longest match first,
+# so ACS880-04XT wins over ACS880-04, and Relion-615 is not read as fault 615.
+_CHUNK_FAMILIES = (
+    "AC-800M",
+    "AC500",
+    "ACH180",
+    "ACH580",
+    "ACM510",
+    "ACP510",
+    "ACQ580",
+    "ACS280",
+    "ACS320",
+    "ACS355",
+    "ACS380",
+    "ACS480",
+    "ACS530",
+    "ACS550",
+    "ACS560",
+    "ACS580",
+    "ACS600",
+    "ACS800",
+    "ACS850",
+    "ACS860",
+    "ACS880",
+    "ACS880-01",
+    "ACS880-04",
+    "ACS880-04XT",
+    "ACS880-07",
+    "ACS880-1007LC",
+    "ACS880-104",
+    "ACS880-107",
+    "ACS880-11",
+    "ACS880-14",
+    "ACS880-1604",
+    "ACS880-1604LC",
+    "ACS880-1607",
+    "ACS880-1607LC",
+    "ACS880-17",
+    "ACS880-204",
+    "ACS880-204LC",
+    "ACS880-207",
+    "ACS880-207LC",
+    "ACS880-304",
+    "ACS880-304LC",
+    "ACS880-307",
+    "ACS880-307LC",
+    "ACS880-31",
+    "ACS880-34",
+    "ACS880-37",
+    "ACS880-604",
+    "ACS880-604LC",
+    "ACS880-607",
+    "ACS880-607LC",
+    "ACS880-7107LC",
+    "ACS880-7207LC",
+    "ACS880-7407LC",
+    "ACS880-77CC",
+    "ACS880-77LC",
+    "ACS880-87CC",
+    "ACS880-87LC",
+    "ACS880-904",
+    "ACS880-907",
+    "ACS880-B07",
+    "ACS880-M04",
+    "AMR",
+    "Busch",
+    "COM600",
+    "CP300",
+    "CP600",
+    "CRB",
+    "CoriolisMaster",
+    "DCS600",
+    "DCS800",
+    "DCS880",
+    "DCT880",
+    "Drive-Composer",
+    "Ekip",
+    "Emax",
+    "FlexLoader",
+    "IRB",
+    "IRBT",
+    "MNS",
+    "NGC",
+    "Navigator",
+    "OmniCore",
+    "PSE",
+    "PSR",
+    "PSTX",
+    "Panel-800",
+    "PowerValue",
+    "ProcessMaster",
+    "REB611",
+    "REC601",
+    "REC615",
+    "RED615",
+    "REF542",
+    "REF601",
+    "REF610",
+    "REF611",
+    "REF615",
+    "REF615R",
+    "REF620",
+    "REF630",
+    "REG615",
+    "REG630",
+    "REJ603",
+    "REM610",
+    "REM611",
+    "REM615",
+    "REM620",
+    "REM630",
+    "RER111",
+    "RER601",
+    "RER620",
+    "RET615",
+    "RET620",
+    "RET630",
+    "REU610",
+    "REU611",
+    "REU615",
+    "REX610",
+    "REX615",
+    "REX640",
+    "RIO600",
+    "Relion-610",
+    "Relion-615",
+    "Relion-620",
+    "Relion-630",
+    "SACE",
+    "SSC600",
+    "SafeMove",
+    "SafeRing",
+    "System-800xA",
+    "System-pro-E",
+    "Terra",
+    "Tmax",
+    "TruONE",
+    "UMC100",
+    "UniGear",
+    "firmware-AINLX",
+    "firmware-YINLX",
+)
+_CHUNK_CANON = {name.upper(): name for name in _CHUNK_FAMILIES}
+_CHUNK_FAMILY = re.compile(
+    r"(?<![A-Za-z0-9])(?:"
+    + "|".join(re.escape(name) for name in sorted(_CHUNK_FAMILIES, key=len, reverse=True))
+    + r")(?![A-Za-z0-9])",
+    re.IGNORECASE,
+)
 _LIBRARY_CANON = {name.upper(): name for name in _LIBRARY_NAMES}
 _LIBRARY = re.compile(
     r"\b(?:"
@@ -216,6 +365,9 @@ def drive_folder(code: str) -> str:
 
 def _collect(text: str, bare_faults: bool) -> list[Identifier]:
     matches: list[tuple[int, int, str, str]] = []
+    for match in _CHUNK_FAMILY.finditer(text):
+        canon = _CHUNK_CANON[match.group(0).upper()]
+        matches.append((match.start(), match.end(), "family", canon))
     for match in _DRIVE.finditer(text):
         matches.append((match.start(), match.end(), "frame", _canonical_frame(match.group(0))))
     for match in _LIBRARY.finditer(text):
@@ -272,7 +424,9 @@ def route_families(text: str) -> list[str]:
     """Folders a question should read. library is the folder when none are named."""
     families: list[str] = []
     for item in question_identifiers(text):
-        if item.kind == "frame":
+        if item.kind == "family":
+            folder = item.text
+        elif item.kind == "frame":
             folder = drive_folder(item.text)
         elif item.kind == "firmware":
             folder = f"firmware-{item.text}"
@@ -311,7 +465,10 @@ def bm25_tokens(text: str) -> list[str]:
 
 def _check() -> None:
     frames = question_identifiers("Replace the ACS880-04XT fan, not the ACS880-04 fan.")
-    assert [item.text for item in frames if item.kind == "frame"] == ["ACS880-04XT", "ACS880-04"]
+    assert [item.text for item in frames if item.kind in {"frame", "family"}] == [
+        "ACS880-04XT",
+        "ACS880-04",
+    ]
     assert route_families("ACS880-04 startup") == ["ACS880-04"]
     assert route_families("YINLX fault 2340 on ACS880-01") == [
         "firmware-YINLX",
@@ -336,6 +493,14 @@ def _check() -> None:
     assert Identifier("library_equipment", "IRC5") in question_identifiers("IRC5 panel mounted controller")
     assert route_families("IRC5 panel mounted controller") == ["library"]
     assert route_families("Tmax XT5 flange handle") == ["Tmax", "library"]
+    for family in _CHUNK_FAMILIES:
+        assert family in route_families(family), family
+    assert route_families("AC-800M controller") == ["AC-800M"]
+    assert route_families("Panel-800 display") == ["Panel-800"]
+    assert route_families("Relion-615 installation") == ["Relion-615"]
+    assert route_families("System pro E power") == ["System-pro-E"]
+    assert route_families("Drive Composer") == ["Drive-Composer"]
+    assert "610" not in [item.text for item in question_identifiers("Relion-610") if item.kind == "fault_code"]
     assert "acs580-01" in bm25_tokens("ACS580-01") and "acs580" in bm25_tokens("ACS580-01")
     assert "ach550" in bm25_tokens("ACH550") and "irc5" in bm25_tokens("IRC5")
     labeled = identifier_tokens("FAULT 2340 and parameter 99.04 in 3AXD50000042620, option +C135.")
