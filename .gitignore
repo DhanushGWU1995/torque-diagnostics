@@ -17,4 +17,5 @@ chunk_status.txt
 chunk_remaining.txt
 chunk_failed.txt
 coverage.txt
+token_status.txt
 __pycache__/

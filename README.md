@@ -44,3 +44,10 @@ After chunking has finished, DuckDB reads the shards and writes a coverage count
 ```bash
 uv run python data-preprocessing/coverage_duckdb.py
 ```
+
+The indexing step tokenizes those passages. It does not embed them yet. The identifier tokenizer keeps a frame, firmware name, fault code, parameter, and document id whole. The BM25 tokenizer lowercases, keeps a hyphenated token and its pieces, and does not stem. Run one equipment folder first.
+
+```bash
+uv run python data-indexing/manual_tokens.py
+INDEX_FAMILY=ACS880-11 uv run python data-indexing/build_tokens.py
+```
