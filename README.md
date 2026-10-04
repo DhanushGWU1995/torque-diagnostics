@@ -9,7 +9,7 @@ Install [uv](https://docs.astral.sh/uv/), clone the repo, and from the repositor
 uv sync
 ```
 
-That creates `.venv` and installs boto3, Polars, PyArrow, PyMuPDF, Pillow, and pytesseract for both scripts.
+That creates `.venv` and installs boto3, DuckDB, Polars, PyArrow, PyMuPDF, Pillow, and pytesseract.
 
 ### After uv sync
 
@@ -38,3 +38,9 @@ MAX_FILES=100 uv run python data-preprocessing/chunk_raw_pdfs.py
 ```
 
 Progress is written to `chunk_status.txt` in the working directory. Keys that still need a shard are listed in `chunk_remaining.txt`. Failures are appended to `chunk_failed.txt`. Run only one copy of the chunking script at a time. Files of 200 MB or more run alone. Smaller files run two at a time.
+
+After chunking has finished, DuckDB reads the shards and writes a coverage count per equipment folder to `coverage.txt`. That report is how many passages, tracing pages, fault codes, parts, and procedures each folder stored. It is not used to answer a technician question.
+
+```bash
+uv run python data-preprocessing/coverage_duckdb.py
+```

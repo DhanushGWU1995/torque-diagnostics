@@ -16,4 +16,5 @@ data-preprocessing/__pycache__/
 chunk_status.txt
 chunk_remaining.txt
 chunk_failed.txt
+coverage.txt
 __pycache__/
