@@ -4,7 +4,9 @@
 This reads the finished Parquet shards. It does not open the PDFs and it
 does not build the embedding index. Set INDEX_FAMILY to one folder for a
 test. INDEX_FAMILY=all writes every folder, which is a full read of the
-shards. A folder that already has a finished token file is skipped.
+shards. A folder that already has a finished token file is skipped. library is
+tokenized with three processes. Every other folder stays on one process.
+The tokens and their order are the same either way.
 
 Credentials come from the environment. This file does not contain an
 access key.
@@ -52,7 +54,31 @@ REGION = "us-east-1"
 CHUNKS_ROOT = "dhanush.mathivanan@gwu.edu/torque-diagnostics/chunks"
 INDEX_ROOT = "dhanush.mathivanan@gwu.edu/torque-diagnostics/index/tokens"
 STATUS_NAME = "token_status.txt"
+LARGE_FAMILIES = frozenset({"library"})
+LARGE_WORKERS = 3
 _FAMILY_NAME = re.compile(r"[A-Za-z0-9_.+-]+")
+
+
+def tokenize_batch(batch: list[tuple]) -> tuple[list[dict[str, object]], int]:
+    """Tokenize one fetched batch. Row order inside the batch stays put."""
+    rows: list[dict[str, object]] = []
+    identified = 0
+    for chunk_id, document_id, asset_family_name, page_number, text in batch:
+        words = bm25_tokens(text)
+        found = identifier_tokens(text)
+        if found:
+            identified += 1
+        rows.append(
+            {
+                "chunk_id": chunk_id,
+                "document_id": document_id,
+                "asset_family": asset_family_name,
+                "page_number": int(page_number),
+                "bm25_tokens": " ".join(words),
+                "identifiers": "|".join(f"{item.kind}:{item.text}" for item in found),
+            }
+        )
+    return rows, identified
 
 
 def token_key(family: str) -> str:
@@ -147,30 +173,39 @@ def write_family(connection, s3, family: str) -> tuple[int, int]:
     writer = pq.ParquetWriter(path, schema, compression="zstd")
     passages = 0
     identified = 0
+    workers = LARGE_WORKERS if family in LARGE_FAMILIES else 1
+
+    def write_rows(rows: list[dict[str, object]], found_count: int) -> None:
+        nonlocal passages, identified
+        identified += found_count
+        passages += len(rows)
+        if rows:
+            writer.write_table(pa.Table.from_pylist(rows, schema=schema))
+
     try:
-        while True:
-            batch = cursor.fetchmany(2000)
-            if not batch:
-                break
-            rows: list[dict[str, object]] = []
-            for chunk_id, document_id, asset_family_name, page_number, text in batch:
-                words = bm25_tokens(text)
-                found = identifier_tokens(text)
-                if found:
-                    identified += 1
-                rows.append(
-                    {
-                        "chunk_id": chunk_id,
-                        "document_id": document_id,
-                        "asset_family": asset_family_name,
-                        "page_number": int(page_number),
-                        "bm25_tokens": " ".join(words),
-                        "identifiers": "|".join(f"{item.kind}:{item.text}" for item in found),
-                    }
-                )
-                passages += 1
-            if rows:
-                writer.write_table(pa.Table.from_pylist(rows, schema=schema))
+        if workers == 1:
+            while True:
+                batch = cursor.fetchmany(2000)
+                if not batch:
+                    break
+                write_rows(*tokenize_batch(batch))
+        else:
+            from concurrent.futures import ProcessPoolExecutor
+            from multiprocessing import get_context
+
+            print(f"{family} workers={workers}", flush=True)
+            context = get_context("spawn")
+            with ProcessPoolExecutor(max_workers=workers, mp_context=context) as pool:
+                pending = []
+                while True:
+                    batch = cursor.fetchmany(2000)
+                    if not batch:
+                        break
+                    pending.append(pool.submit(tokenize_batch, list(batch)))
+                    if len(pending) >= workers:
+                        write_rows(*pending.pop(0).result())
+                for future in pending:
+                    write_rows(*future.result())
         writer.close()
         writer = None
         s3.upload_file(path, BUCKET, key)
