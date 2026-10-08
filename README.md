@@ -51,3 +51,10 @@ The indexing step tokenizes those passages. It does not embed them yet. The iden
 uv run python data-indexing/manual_tokens.py
 INDEX_FAMILY=ACS880-11 uv run python data-indexing/build_tokens.py
 ```
+
+The word index is BM25 over those tokens, one file per equipment folder. A question is tokenized the same way, then the highest-scoring passages in that folder are returned with the document id and page. This does not write the technician's answer.
+
+```bash
+INDEX_FAMILY=ACS880-11 uv run python data-indexing/build_bm25.py
+QUESTION='necessary tools for flange mounting ACS880-11' uv run python data-indexing/query_bm25.py
+```
