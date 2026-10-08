@@ -22,7 +22,7 @@ in the token, and the pieces are kept as well, so ACS880-04 matches a
 question that says ACS880-04 or ACS880. Nothing is stemmed. Function
 words are dropped. Short technical tokens such as dc, ac, and igbt stay.
 
-    uv run python data-indexing/manual_tokens.py
+    uv run python data-indexing/tokenization/manual_tokens.py
 """
 
 from __future__ import annotations

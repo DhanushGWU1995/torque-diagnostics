@@ -13,11 +13,11 @@ large, so run it after the smaller folders have stored.
 Credentials come from the environment. This file does not contain an
 access key.
 
-    INDEX_FAMILY=ACS880-11 uv run python data-indexing/build_bm25.py
+    INDEX_FAMILY=ACS880-11 uv run python data-indexing/bm25/build_bm25.py
 
 On the EC2 instance, from ~/dl-venv/nlp_project:
 
-    INDEX_FAMILY=ACS880-11 ~/dl-venv/bin/python data-indexing/build_bm25.py
+    INDEX_FAMILY=ACS880-11 ~/dl-venv/bin/python data-indexing/bm25/build_bm25.py
 
 Each folder is written to
 
@@ -33,7 +33,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+_HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(_HERE))
+sys.path.insert(0, str(_HERE.parent / "tokenization"))
 
 from manual_tokens import bm25_tokens
 

@@ -11,11 +11,11 @@ The tokens and their order are the same either way.
 Credentials come from the environment. This file does not contain an
 access key.
 
-    INDEX_FAMILY=ACS880-11 uv run python data-indexing/build_tokens.py
+    INDEX_FAMILY=ACS880-11 uv run python data-indexing/tokenization/build_tokens.py
 
 On the EC2 instance, from ~/dl-venv/nlp_project:
 
-    INDEX_FAMILY=ACS880-11 ~/dl-venv/bin/python data-indexing/build_tokens.py
+    INDEX_FAMILY=ACS880-11 ~/dl-venv/bin/python data-indexing/tokenization/build_tokens.py
 
 Each folder is written to
 

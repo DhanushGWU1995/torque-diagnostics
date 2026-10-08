@@ -45,16 +45,16 @@ After chunking has finished, DuckDB reads the shards and writes a coverage count
 uv run python data-preprocessing/coverage_duckdb.py
 ```
 
-The indexing step tokenizes those passages. It does not embed them yet. The identifier tokenizer keeps a frame, firmware name, fault code, parameter, and document id whole. The same longest match covers every drive family, so ACS580-01 reads the ACS580 folder and ACS880-04 reads the ACS880-04 folder. A drive or product whose manuals stayed in library, such as ACH550 or IRC5, reads library. The BM25 tokenizer lowercases, keeps a hyphenated token and its pieces, and does not stem. Run one equipment folder first.
+The indexing step tokenizes those passages. It does not embed them yet. Tokenizers live in `data-indexing/tokenization`. The identifier tokenizer keeps a frame, firmware name, fault code, parameter, and document id whole. The same longest match covers every drive family, so ACS580-01 reads the ACS580 folder and ACS880-04 reads the ACS880-04 folder. A drive or product whose manuals stayed in library, such as ACH550 or IRC5, reads library. The BM25 tokenizer lowercases, keeps a hyphenated token and its pieces, and does not stem. Run one equipment folder first.
 
 ```bash
-uv run python data-indexing/manual_tokens.py
-INDEX_FAMILY=ACS880-11 uv run python data-indexing/build_tokens.py
+uv run python data-indexing/tokenization/manual_tokens.py
+INDEX_FAMILY=ACS880-11 uv run python data-indexing/tokenization/build_tokens.py
 ```
 
-The word index is BM25 over those tokens, one file per equipment folder. A question is tokenized the same way, then the highest-scoring passages in that folder are returned with the document id and page. This does not write the technician's answer.
+The word index is BM25 over those tokens, one file per equipment folder. `data-indexing/bm25` builds that index. `data-indexing/query` tokenizes a question the same way and returns the highest-scoring passages with the document id and page. This does not write the technician's answer.
 
 ```bash
-INDEX_FAMILY=ACS880-11 uv run python data-indexing/build_bm25.py
-QUESTION='necessary tools for flange mounting ACS880-11' uv run python data-indexing/query_bm25.py
+INDEX_FAMILY=ACS880-11 uv run python data-indexing/bm25/build_bm25.py
+QUESTION='necessary tools for flange mounting ACS880-11' uv run python data-indexing/query/query_bm25.py
 ```

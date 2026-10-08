@@ -5,7 +5,7 @@ This reads the index written by build_bm25.py. It does not call a language
 model. The printed rows are the pages a later reply step is allowed to use.
 
     QUESTION='necessary tools for flange mounting ACS880-11' \\
-        uv run python data-indexing/query_bm25.py
+        uv run python data-indexing/query/query_bm25.py
 
 INDEX_FAMILY overrides the folder router. Otherwise the question names
 the folder. A question with no series reads library.
@@ -19,7 +19,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+_HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(_HERE.parent / "bm25"))
+sys.path.insert(0, str(_HERE.parent / "tokenization"))
 
 from build_bm25 import BUCKET, REGION, bm25_key, search
 from manual_tokens import route_families
