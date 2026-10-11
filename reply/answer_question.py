@@ -70,7 +70,11 @@ def gate(answer: str, passages: list[dict], entails) -> str:
         claim = claim_text(sentence)
         if not re.search(r"[A-Za-z]", claim):
             continue
-        supporters = [row for row in passages if entails(row["text"], claim)]
+        supporters = [
+            row
+            for row in passages
+            if claim.lower() in row["text"].lower() or entails(row["text"], claim)
+        ]
         if not supporters:
             return WITHHOLD
         cites = "; ".join(
