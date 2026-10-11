@@ -86,6 +86,49 @@ def page_lines(text: str) -> list[str]:
     return lines
 
 
+_CONTINUE = frozenset("and or to be of the a an in on for with from by as at into onto".split())
+
+
+def page_sentences(text: str) -> list[str]:
+    blocks: list[str] = []
+    buf = ""
+    for line in page_lines(text):
+        first = re.match(r"[A-Za-z]+", line)
+        continues = (
+            bool(buf)
+            and buf[-1] not in ".!?:;"
+            and bool(first)
+            and first.group(0)[:1].islower()
+            and first.group(0).lower() in _CONTINUE
+        )
+        if continues:
+            buf = f"{buf} {line}"
+        else:
+            if buf:
+                blocks.append(buf)
+            buf = line
+    if buf:
+        blocks.append(buf)
+    sentences: list[str] = []
+    for block in blocks:
+        sentences.extend(part.strip() for part in _SENTENCE.split(block) if re.search(r"[A-Za-z]", part))
+    return sentences
+
+
+def covering_sentence(text: str, words: set[str]) -> str | None:
+    """A manual sentence that already lists the claim's circumstances together."""
+    if len(words) < 4:
+        return None
+    found: list[tuple[int, str]] = []
+    for sentence in page_sentences(text):
+        shared = {word for word in words if word in sentence.lower()}
+        if len(shared) >= 4 and len(shared) / len(words) >= 0.6:
+            found.append((len(shared), sentence))
+    if not found:
+        return None
+    return min(found, key=lambda item: (-item[0], len(item[1])))[1]
+
+
 def best_line(text: str, claim_words: set[str]) -> tuple[str, float] | None:
     """Return the manual line that the claim restates, with its word overlap."""
     best: str | None = None
@@ -164,6 +207,23 @@ def gate(answer: str, passages: list[dict], entails, question: str = "") -> str:
         claim = claim_text(sentence)
         if not re.search(r"[A-Za-z]", claim):
             continue
+        novel = content_words(claim) - question_words
+        covered: list[tuple[int, str, dict]] = []
+        if len(novel) >= 4:
+            for row in passages:
+                sentence = covering_sentence(row["text"], novel)
+                if sentence:
+                    shared = sum(word in sentence.lower() for word in novel)
+                    covered.append((shared, sentence.rstrip(".").strip(), row))
+        if covered:
+            best_shared = max(item[0] for item in covered)
+            best = [item for item in covered if item[0] == best_shared]
+            wording = min(best, key=lambda item: len(item[1]))[1]
+            rows = [item[2] for item in best]
+            if wording.lower() not in seen_wording:
+                seen_wording.add(wording.lower())
+                kept.append((wording, rows))
+            continue
         for part in clauses(claim):
             novel = content_words(part) - question_words
             if not novel:
@@ -190,11 +250,22 @@ def gate(answer: str, passages: list[dict], entails, question: str = "") -> str:
                 continue
             seen_wording.add(wording.lower())
             kept.append((wording, supporters))
+    long_answer = any(len(content_words(wording)) >= 6 for wording, _rows in kept)
     kept = [
         item
         for item in kept
-        if not any(
-            item[0].lower() != other[0].lower() and item[0].lower() in other[0].lower()
+        if not (
+            long_answer and len(content_words(item[0])) <= 2
+        )
+        and not any(
+            item[0].lower() != other[0].lower()
+            and (
+                item[0].lower() in other[0].lower()
+                or (
+                    content_words(item[0])
+                    and all(word in other[0].lower() for word in content_words(item[0]))
+                )
+            )
             for other in kept
         )
     ]
@@ -271,6 +342,7 @@ def draft(question: str, passages: list[dict]) -> str:
         "Write a clear answer in complete sentences that a technician can read aloud. "
         "Copy tool names and steps in the words used by the passages, one fact per sentence. "
         "Name every tool or step the passage lists. "
+        "When a passage names the circumstances in one sentence, copy that sentence whole. "
         "Do not use bullet points. "
         "If any passage states the tools or the steps, write that answer. "
         "Do not add a tool, a step, or a value that the passages do not state. "

@@ -66,7 +66,28 @@ INDEX_FAMILY=ACS880-11 uv run python data-indexing/embeddings/build_embeddings.p
 QUESTION='socket set and hex key set for flange-mounting ACS880-11' uv run python data-indexing/query/query_hybrid.py
 ```
 
-The reply reads those merged pages. `Qwen/Qwen2.5-7B-Instruct` writes the answer from the passage text and cites the document id and page. `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli` then checks each statement. A procedure that those pages do not entail is withheld.
+The reply reads the top 15 merged pages. `Qwen/Qwen2.5-7B-Instruct` writes the draft from those passages and does not name a document or a page. The code then attaches the citation. `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli` is loaded on every reply. Its entailment judgment runs for one case: the claim is not already a sentence on a retrieved page, it is not an exact line, and the closest line shares at least 34 percent of its content words and under 50 percent. Entailment keeps that line. Neutral or contradiction drops it. If no claim remains, the answer is withheld.
+
+```mermaid
+flowchart TD
+  Q[Question] --> R[Hybrid search keeps 15 pages]
+  R --> W[Qwen writes the draft]
+  W --> L[Load DeBERTa]
+  L --> S{Each draft sentence}
+  S -->|Refusal of at most two sentences| A[Return the refusal]
+  S -->|At least four new words, and one page sentence holds at least 60 percent of them| B[Quote that page sentence]
+  S -->|Any other sentence| C[Split the sentence on commas and and]
+  C --> P{Closest manual line}
+  P -->|Exact line| D[Quote the line]
+  P -->|At least 50 percent of the line's words are in the claim| D
+  P -->|At least 34 percent and under 50 percent| E[Ask DeBERTa whether the line entails the claim]
+  E -->|Entailment| D
+  E -->|Neutral or contradiction| F[Drop the claim]
+  P -->|Under 34 percent| F
+  F --> G{Any claim kept?}
+  G -->|No| H[Withhold the answer]
+  G -->|Yes| I[Release the quoted lines with document and page]
+```
 
 ```bash
 QUESTION='What tools are needed to flange-mount an ACS880-11?' \\
