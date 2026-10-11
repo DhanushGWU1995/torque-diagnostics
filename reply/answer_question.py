@@ -86,13 +86,21 @@ def page_lines(text: str) -> list[str]:
     return lines
 
 
-def matching_line(text: str, words: set[str]) -> str | None:
-    if not words:
+def best_line(text: str, claim_words: set[str]) -> tuple[str, float] | None:
+    """Return the manual line that the claim restates, with its word overlap."""
+    best: str | None = None
+    best_score = 0.0
+    for line in page_lines(text):
+        words = content_words(line)
+        if len(words) < 2 or not claim_words:
+            continue
+        score = len(words & claim_words) / len(words)
+        if score > best_score or (score == best_score and best is not None and len(line) < len(best)):
+            best = line
+            best_score = score
+    if best is None or best_score < 0.34:
         return None
-    found = [line for line in page_lines(text) if all(word in line.lower() for word in words)]
-    if not found:
-        return None
-    return min(found, key=len)
+    return best, best_score
 
 
 def opening_line(text: str) -> str | None:
@@ -158,19 +166,21 @@ def gate(answer: str, passages: list[dict], entails, question: str = "") -> str:
             continue
         for part in clauses(claim):
             novel = content_words(part) - question_words
+            if not novel:
+                continue
             supporters: list[dict] = []
             wordings: list[str] = []
             for row in passages:
-                copied = part.lower() in row["text"].lower()
-                line = matching_line(row["text"], novel) if novel else None
+                found = best_line(row["text"], content_words(part))
+                line = found[0] if found else None
                 exact = any(
                     line_text.lower().rstrip(".:") == part.lower().rstrip(".:")
                     for line_text in page_lines(row["text"])
                 )
-                if copied and (novel or exact):
+                if exact:
                     wordings.append(line or part)
                     supporters.append(row)
-                elif line and entails(line, part):
+                elif found and (found[1] >= 0.5 or entails(line, part)):
                     wordings.append(line)
                     supporters.append(row)
             if not supporters:
@@ -180,6 +190,14 @@ def gate(answer: str, passages: list[dict], entails, question: str = "") -> str:
                 continue
             seen_wording.add(wording.lower())
             kept.append((wording, supporters))
+    kept = [
+        item
+        for item in kept
+        if not any(
+            item[0].lower() != other[0].lower() and item[0].lower() in other[0].lower()
+            for other in kept
+        )
+    ]
     if not kept:
         return WITHHOLD
     same_pages = all(cite_label(rows) == cite_label(kept[0][1]) for _, rows in kept)
@@ -252,6 +270,7 @@ def draft(question: str, passages: list[dict]) -> str:
         "You are a technician assistant for ABB manuals. "
         "Write a clear answer in complete sentences that a technician can read aloud. "
         "Copy tool names and steps in the words used by the passages, one fact per sentence. "
+        "Name every tool or step the passage lists. "
         "Do not use bullet points. "
         "If any passage states the tools or the steps, write that answer. "
         "Do not add a tool, a step, or a value that the passages do not state. "
