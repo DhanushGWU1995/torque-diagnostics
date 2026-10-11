@@ -107,7 +107,7 @@ def main() -> int:
             continue
         for rank, hit in enumerate(hits, start=1):
             print(
-                f"{rank}. rrf={hit['score']:.4f} "
+                f"{rank}. score={hit['score']:.4f} "
                 f"bm25_rank={hit['bm25_rank']} embed_rank={hit['embed_rank']} "
                 f"document={hit['document_id']} page={hit['page_number']} "
                 f"chunk={hit['chunk_id']}"
