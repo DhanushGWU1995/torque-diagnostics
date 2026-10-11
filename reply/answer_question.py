@@ -135,8 +135,8 @@ def draft(question: str, passages: list[dict]) -> str:
     tokenizer = AutoTokenizer.from_pretrained(WRITER_MODEL)
     model = AutoModelForCausalLM.from_pretrained(
         WRITER_MODEL,
-        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-        device_map="cuda" if torch.cuda.is_available() else "cpu",
+        dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+        device_map="auto" if torch.cuda.is_available() else "cpu",
     )
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
     prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
