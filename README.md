@@ -69,6 +69,6 @@ QUESTION='socket set and hex key set for flange-mounting ACS880-11' uv run pytho
 The reply reads those merged pages. `Qwen/Qwen2.5-7B-Instruct` writes the answer from the passage text and cites the document id and page. `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli` then checks each statement. A procedure that those pages do not entail is withheld.
 
 ```bash
-QUESTION='socket set and hex key set for flange-mounting ACS880-11' \\
+QUESTION='What tools are needed to flange-mount an ACS880-11?' \\
   INDEX_FAMILY=ACS880-11 uv run python reply/answer_question.py
 ```

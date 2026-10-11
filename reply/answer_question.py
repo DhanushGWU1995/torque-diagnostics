@@ -6,7 +6,7 @@ from those pages only and cites the document id and page. DeBERTa v3,
 trained for MNLI, decides whether each statement is entailed by the cited
 page. A procedure that is not entailed is withheld.
 
-    QUESTION='socket set and hex key set for flange-mounting ACS880-11' \\
+    QUESTION='What tools are needed to flange-mount an ACS880-11?' \\
         uv run python reply/answer_question.py
 
 INDEX_FAMILY overrides the folder router. Otherwise the question names
@@ -143,7 +143,9 @@ def draft(question: str, passages: list[dict]) -> str:
         )
     system = (
         "You are a technician assistant for ABB manuals. "
-        "Answer only from the passages. Use their wording. "
+        "Write a clear answer in complete sentences. "
+        "Use only facts that appear in the passages, and put each fact in its own sentence. "
+        "Do not add a tool, a step, or a value that the passages do not state. "
         "Do not name a document id or a page number. "
         f"If the passages do not state the procedure, reply only: {REFUSAL.capitalize()}."
     )
