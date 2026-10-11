@@ -42,7 +42,14 @@ _CITE = re.compile(r"document\s+([A-Za-z0-9_.+-]+)\s*,\s*page\s+(\d+)", re.IGNOR
 
 
 def content_sentences(answer: str) -> list[str]:
-    parts = [part.strip() for part in _SENTENCE.split(answer.strip()) if part.strip()]
+    parts: list[str] = []
+    for line in answer.splitlines():
+        line = line.strip(" •-\t")
+        if not line:
+            continue
+        parts.extend(part.strip() for part in _SENTENCE.split(line) if part.strip())
+    if not parts and answer.strip():
+        parts = [answer.strip()]
     return [part for part in parts if re.search(r"[A-Za-z]", part)]
 
 
@@ -76,7 +83,7 @@ def gate(answer: str, passages: list[dict], entails) -> str:
             if claim.lower() in row["text"].lower() or entails(row["text"], claim)
         ]
         if not supporters:
-            return WITHHOLD
+            continue
         cites = "; ".join(
             f"document {row['document_id']}, page {row['page_number']}" for row in supporters
         )
