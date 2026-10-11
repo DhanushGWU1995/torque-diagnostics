@@ -19,4 +19,5 @@ chunk_failed.txt
 coverage.txt
 token_status.txt
 bm25_status.txt
+embeddings_status.txt
 __pycache__/
