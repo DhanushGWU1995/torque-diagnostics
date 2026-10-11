@@ -145,9 +145,10 @@ def draft(question: str, passages: list[dict]) -> str:
         "You are a technician assistant for ABB manuals. "
         "Write a clear answer in complete sentences. "
         "Use only facts that appear in the passages, and put each fact in its own sentence. "
+        "If any passage states the tools or the steps, write that answer. "
         "Do not add a tool, a step, or a value that the passages do not state. "
         "Do not name a document id or a page number. "
-        f"If the passages do not state the procedure, reply only: {REFUSAL.capitalize()}."
+        f"If none of the passages state the procedure, reply only: {REFUSAL.capitalize()}."
     )
     user = "Passages:\n\n" + "\n\n".join(blocks) + f"\n\nQuestion: {question}"
     tokenizer = AutoTokenizer.from_pretrained(WRITER_MODEL)
@@ -202,7 +203,7 @@ def main() -> int:
         return 1
     override = os.environ.get("INDEX_FAMILY", "").strip()
     families = [override] if override else route_families(question)
-    k = int(os.environ.get("TOP_K", "5"))
+    k = int(os.environ.get("TOP_K", "15"))
     print(f"folders: {', '.join(families)}", flush=True)
     hits = retrieve(question, families, k)
     passages = load_texts(hits)
