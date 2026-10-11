@@ -65,3 +65,10 @@ The embedding index uses one English sentence-transformer, `BAAI/bge-base-en-v1.
 INDEX_FAMILY=ACS880-11 uv run python data-indexing/embeddings/build_embeddings.py
 QUESTION='socket set and hex key set for flange-mounting ACS880-11' uv run python data-indexing/query/query_hybrid.py
 ```
+
+The reply reads those merged pages. `Qwen/Qwen2.5-7B-Instruct` writes the answer from the passage text and cites the document id and page. `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli` then checks each statement. A procedure that those pages do not entail is withheld.
+
+```bash
+QUESTION='socket set and hex key set for flange-mounting ACS880-11' \\
+  INDEX_FAMILY=ACS880-11 uv run python reply/answer_question.py
+```
