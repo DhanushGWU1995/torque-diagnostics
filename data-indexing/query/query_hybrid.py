@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Merge the BM25 ranking and the embedding ranking for one question.
 
-Each index returns its own top passages. Reciprocal rank fusion adds the
-two lists. The printed rows are still pages, with the document id and page.
-This does not call a language model.
+Each index scores every passage in the folder. Those scores are scaled to
+the same range and added. A page that names the exact tools stays ahead of
+a page that only looks related. The printed rows are still pages, with the
+document id and page. This does not call a language model.
 
     QUESTION='socket set and hex key set for flange-mounting ACS880-11' \\
         uv run python data-indexing/query/query_hybrid.py
@@ -30,10 +31,6 @@ from build_embeddings import embed_key, encode_texts, load_encoder, read_table, 
 from manual_tokens import route_families
 from query_bm25 import load_payload
 
-RRF_K = 60
-POOL = 20
-
-
 def load_embeddings(family: str):
     local = os.environ.get("EMBED_LOCAL", "").strip()
     if local:
@@ -50,29 +47,38 @@ def load_embeddings(family: str):
         os.remove(path)
 
 
+def _scale(hits: list[dict]) -> dict[str, float]:
+    if not hits:
+        return {}
+    peak = max(float(hit["score"]) for hit in hits)
+    if peak <= 0:
+        return {}
+    return {hit["chunk_id"]: float(hit["score"]) / peak for hit in hits}
+
+
 def fuse(bm25_hits: list[dict], embed_hits: list[dict], k: int) -> list[dict]:
-    """Reciprocal rank fusion. Rank 1 from either list contributes the most."""
-    pooled: dict[str, dict] = {}
-    for hits in (bm25_hits, embed_hits):
-        for rank, hit in enumerate(hits, start=1):
-            row = pooled.setdefault(
-                hit["chunk_id"],
-                {
-                    "chunk_id": hit["chunk_id"],
-                    "document_id": hit["document_id"],
-                    "page_number": hit["page_number"],
-                    "score": 0.0,
-                    "bm25_rank": 0,
-                    "embed_rank": 0,
-                },
-            )
-            row["score"] += 1.0 / (RRF_K + rank)
-    for rank, hit in enumerate(bm25_hits, start=1):
-        pooled[hit["chunk_id"]]["bm25_rank"] = rank
-    for rank, hit in enumerate(embed_hits, start=1):
-        pooled[hit["chunk_id"]]["embed_rank"] = rank
-    ordered = sorted(pooled.values(), key=lambda row: row["score"], reverse=True)
-    return ordered[:k]
+    """Add the two scores after scaling each list by its own highest score."""
+    bm25_score = _scale(bm25_hits)
+    embed_score = _scale(embed_hits)
+    bm25_rank = {hit["chunk_id"]: rank for rank, hit in enumerate(bm25_hits, start=1)}
+    embed_rank = {hit["chunk_id"]: rank for rank, hit in enumerate(embed_hits, start=1)}
+    meta: dict[str, dict] = {}
+    for hit in bm25_hits + embed_hits:
+        meta.setdefault(hit["chunk_id"], hit)
+    rows = []
+    for chunk_id, hit in meta.items():
+        rows.append(
+            {
+                "chunk_id": chunk_id,
+                "document_id": hit["document_id"],
+                "page_number": hit["page_number"],
+                "score": bm25_score.get(chunk_id, 0.0) + embed_score.get(chunk_id, 0.0),
+                "bm25_rank": bm25_rank.get(chunk_id, 0),
+                "embed_rank": embed_rank.get(chunk_id, 0),
+            }
+        )
+    rows.sort(key=lambda row: row["score"], reverse=True)
+    return rows[:k]
 
 
 def main() -> int:
@@ -89,9 +95,9 @@ def main() -> int:
     for family in families:
         print(f"\n{family}")
         try:
-            bm25_hits = search(load_payload(family), question, POOL)
+            bm25_hits = search(load_payload(family), question, max(k, 10**9))
             matrix, rows = load_embeddings(family)
-            embed_hits = search_vectors(matrix, rows, query_vector, POOL)
+            embed_hits = search_vectors(matrix, rows, query_vector, len(rows) or k)
         except Exception as exc:
             print(f"missing index for {family}: {exc}")
             continue

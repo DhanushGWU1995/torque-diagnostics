@@ -59,7 +59,7 @@ INDEX_FAMILY=ACS880-11 uv run python data-indexing/bm25/build_bm25.py
 QUESTION='necessary tools for flange mounting ACS880-11' uv run python data-indexing/query/query_bm25.py
 ```
 
-The embedding index uses one English sentence-transformer, `BAAI/bge-base-en-v1.5`, on the passage text. One file is written per equipment folder. A question is embedded with that model's retrieval prefix. `query_hybrid.py` merges the BM25 list and the embedding list. This does not write the technician's answer.
+The embedding index uses one English sentence-transformer, `BAAI/bge-base-en-v1.5`, on the passage text. One file is written per equipment folder. A question is embedded with that model's retrieval prefix. `query_hybrid.py` scales the BM25 score and the embedding score to the same range and adds them. This does not write the technician's answer.
 
 ```bash
 INDEX_FAMILY=ACS880-11 uv run python data-indexing/embeddings/build_embeddings.py
