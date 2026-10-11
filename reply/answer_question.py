@@ -50,24 +50,36 @@ def citations(sentence: str) -> list[tuple[str, int]]:
     return [(doc, int(page)) for doc, page in _CITE.findall(sentence)]
 
 
+def claim_text(sentence: str) -> str:
+    claim = _CITE.sub("", sentence)
+    claim = claim.replace("()", " ")
+    return re.sub(r"\s+", " ", claim).strip(" .;")
+
+
 def is_refusal(answer: str) -> bool:
     lowered = answer.lower()
     return REFUSAL in lowered and len(content_sentences(answer)) <= 2
 
 
 def gate(answer: str, passages: list[dict], entails) -> str:
-    """Return the answer, or withhold it when a statement is not entailed."""
+    """Attach the page that entails each statement. Withhold if none does."""
     if is_refusal(answer):
         return answer.strip()
-    allowed = {(row["document_id"], int(row["page_number"])): row["text"] for row in passages}
+    released: list[str] = []
     for sentence in content_sentences(answer):
-        cites = citations(sentence)
-        if cites and any(cite not in allowed for cite in cites):
+        claim = claim_text(sentence)
+        if not re.search(r"[A-Za-z]", claim):
+            continue
+        supporters = [row for row in passages if entails(row["text"], claim)]
+        if not supporters:
             return WITHHOLD
-        premises = [allowed[cite] for cite in cites] if cites else list(allowed.values())
-        if not premises or not any(entails(premise, sentence) for premise in premises):
-            return WITHHOLD
-    return answer.strip()
+        cites = "; ".join(
+            f"document {row['document_id']}, page {row['page_number']}" for row in supporters
+        )
+        released.append(f"{claim} ({cites}).")
+    if not released:
+        return WITHHOLD
+    return " ".join(released)
 
 
 def retrieve(question: str, families: list[str], k: int) -> list[dict]:
@@ -128,7 +140,7 @@ def draft(question: str, passages: list[dict]) -> str:
     system = (
         "You are a technician assistant for ABB manuals. "
         "Answer only from the passages. Use their wording. "
-        "After each statement, cite it as (document <id>, page <number>). "
+        "Do not name a document id or a page number. "
         f"If the passages do not state the procedure, reply only: {REFUSAL.capitalize()}."
     )
     user = "Passages:\n\n" + "\n\n".join(blocks) + f"\n\nQuestion: {question}"
