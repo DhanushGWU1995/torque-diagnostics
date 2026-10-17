@@ -31,7 +31,7 @@ uv run python data-preprocessing/chunk_raw_pdfs.py
 
 The upload script reads `ABB_100GB_Download_List.csv` from the current directory or from the repository root. It stores each PDF at `raw/<equipment>/<document-kind>/<document_id>.pdf`. The equipment folder is the ACS880 frame, a firmware manual, or another series named in the title, such as COM600 or REC615. Catalogues, articles, brochures, and technical files with no series in the title stay in `library`. A PDF already at that key is skipped, so running the script again does not download it a second time.
 
-The chunking script reads those raw keys and writes Parquet under `chunks/asset_family=<family>/text/`, using the equipment folder as the family. A shard is skipped only when its Parquet footer is intact. At the start of a run it rewrites `chunk_remaining.txt` from the raw keys that still have no finished shard, and writes the counts to `chunk_status.txt`. A key that is no longer in the bucket is left off that list. Set `MAX_FILES` to convert one batch and then stop. `MAX_FILES=100` is a safe batch on the project EC2. Leave it unset to process every remaining PDF.
+The chunking script reads those raw keys and writes the text layer under `chunks/asset_family=<family>/text/`, using the equipment folder as the family. Ruled tables and figure text are written beside it, in `tables/` and `images/`. A shard is skipped only when its Parquet footer is intact. At the start of a run it rewrites `chunk_remaining.txt` from the raw keys that still have no finished shard, and writes the counts to `chunk_status.txt`. A key that is no longer in the bucket is left off that list. Set `MAX_FILES` to convert one batch and then stop. `MAX_FILES=100` is a safe batch on the project EC2. Leave it unset to process every remaining PDF.
 
 ```bash
 MAX_FILES=100 uv run python data-preprocessing/chunk_raw_pdfs.py
@@ -39,13 +39,13 @@ MAX_FILES=100 uv run python data-preprocessing/chunk_raw_pdfs.py
 
 Progress is written to `chunk_status.txt` in the working directory. Keys that still need a shard are listed in `chunk_remaining.txt`. Failures are appended to `chunk_failed.txt`. Run only one copy of the chunking script at a time. Files of 200 MB or more run alone. Smaller files run two at a time.
 
-After chunking has finished, DuckDB reads the shards and writes a coverage count per equipment folder to `coverage.txt`. That report is how many passages, tracing pages, fault codes, parts, and procedures each folder stored. It is not used to answer a technician question.
+After chunking has finished, DuckDB reads `text/`, `tables/`, and `images/` and writes a coverage count per equipment folder to `coverage.txt`. The report counts shards and rows for each kind, including a file that stored no rows, and still counts tracing pages, fault codes, parts, and procedures on the text shards. It is not used to answer a technician question.
 
 ```bash
 uv run python data-preprocessing/coverage_duckdb.py
 ```
 
-Table text and image text use the same family folder, in `tables/` and `images/` next to `text/`. A passage file, a table file, and an image file can share a document id because each kind has its own folder. These scripts do not rebuild the token, BM25, or embedding indexes. `data-preprocessing/tables/extract_tables.py` uses pdfplumber on ruled tables. `data-preprocessing/images/extract_image_text.py` sends a cropped figure to Gemini. Set `GEMINI_API_KEY` for that script. A small image and a logo repeated across pages are skipped. Start with one family and a short batch.
+Table text and image text use the same family folder, in `tables/` and `images/` next to `text/`. A passage file, a table file, and an image file can share a document id because each kind has its own folder. `data-preprocessing/tables/extract_tables.py` uses pdfplumber on ruled tables. `data-preprocessing/images/extract_image_text.py` sends a cropped figure to Gemini. Set `GEMINI_API_KEY` for that script. A small image and a logo repeated across pages are skipped. Start with one family and a short batch. Those scripts do not rebuild the indexes. After they have written files, rerun tokenization, BM25, and embeddings for that family with `REBUILD=1`. The reply then searches passage, table, and figure rows together and cites the page, adding `table` or `figure` when the supporting row is not a passage.
 
 ```bash
 INDEX_FAMILY=ACS880-11 MAX_FILES=20 uv run python data-preprocessing/tables/extract_tables.py
@@ -53,28 +53,28 @@ export GEMINI_API_KEY='...'
 INDEX_FAMILY=ACS880-11 MAX_FILES=5 uv run python data-preprocessing/images/extract_image_text.py
 ```
 
-The indexing step tokenizes those passages. It does not embed them yet. Tokenizers live in `data-indexing/tokenization`. The identifier tokenizer keeps a frame, firmware name, fault code, parameter, and document id whole. The same longest match covers every drive family, so ACS580-01 reads the ACS580 folder and ACS880-04 reads the ACS880-04 folder. A drive or product whose manuals stayed in library, such as ACH550 or IRC5, reads library. The BM25 tokenizer lowercases, keeps a hyphenated token and its pieces, and does not stem. Run one equipment folder first.
+The indexing step tokenizes passage, table, and figure rows for that family. It does not embed them yet. A finished token file is skipped unless `REBUILD=1`. Tokenizers live in `data-indexing/tokenization`. The identifier tokenizer keeps a frame, firmware name, fault code, parameter, and document id whole. The same longest match covers every drive family, so ACS580-01 reads the ACS580 folder and ACS880-04 reads the ACS880-04 folder. A drive or product whose manuals stayed in library, such as ACH550 or IRC5, reads library. The BM25 tokenizer lowercases, keeps a hyphenated token and its pieces, and does not stem. Run one equipment folder first.
 
 ```bash
 uv run python data-indexing/tokenization/manual_tokens.py
 INDEX_FAMILY=ACS880-11 uv run python data-indexing/tokenization/build_tokens.py
 ```
 
-The word index is BM25 over those tokens, one file per equipment folder. `data-indexing/bm25` builds that index. `data-indexing/query` tokenizes a question the same way and returns the highest-scoring passages with the document id and page. This does not write the technician's answer.
+The word index is BM25 over those tokens, one file per equipment folder, so a rebuilt token file has to be followed by a rebuilt BM25 file. `data-indexing/bm25` builds that index. `data-indexing/query` tokenizes a question the same way and returns the highest-scoring passages with the document id and page. This does not write the technician's answer.
 
 ```bash
 INDEX_FAMILY=ACS880-11 uv run python data-indexing/bm25/build_bm25.py
 QUESTION='necessary tools for flange mounting ACS880-11' uv run python data-indexing/query/query_bm25.py
 ```
 
-The embedding index uses one English sentence-transformer, `BAAI/bge-base-en-v1.5`, on the passage text. One file is written per equipment folder. A question is embedded with that model's retrieval prefix. `query_hybrid.py` scales the BM25 score and the embedding score to the same range and adds them. This does not write the technician's answer.
+The embedding index uses one English sentence-transformer, `BAAI/bge-base-en-v1.5`, on the same passage, table, and figure text. One file is written per equipment folder. A question is embedded with that model's retrieval prefix. `query_hybrid.py` scales the BM25 score and the embedding score to the same range and adds them. This does not write the technician's answer.
 
 ```bash
 INDEX_FAMILY=ACS880-11 uv run python data-indexing/embeddings/build_embeddings.py
 QUESTION='socket set and hex key set for flange-mounting ACS880-11' uv run python data-indexing/query/query_hybrid.py
 ```
 
-The reply reads the top 15 merged pages. `Qwen/Qwen2.5-7B-Instruct` writes the draft from those passages and does not name a document or a page. The code then attaches the citation. `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli` is loaded on every reply. Its entailment judgment runs for one case: the claim is not already a sentence on a retrieved page, it is not an exact line, and the closest line shares at least 34 percent of its content words and under 50 percent. Entailment keeps that line. Neutral or contradiction drops it. If no claim remains, the answer is withheld.
+The reply reads the top 15 merged rows, which may be a passage, a table, or a figure. `Qwen/Qwen2.5-7B-Instruct` writes the draft from those rows and does not name a document or a page. The code then attaches the citation. A table citation adds `table`, and a figure citation adds `figure`. `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli` is loaded on every reply. Its entailment judgment runs for one case: the claim is not already a sentence on a retrieved page, it is not an exact line, and the closest line shares at least 34 percent of its content words and under 50 percent. Entailment keeps that line. Neutral or contradiction drops it. If no claim remains, the answer is withheld.
 
 ```mermaid
 flowchart TD

@@ -2,6 +2,7 @@
 
 The text chunks already exist. These helpers only find raw PDFs and skip a
 finished Parquet object. They do not rebuild tokens, BM25, or embeddings.
+Those index scripts read text/, tables/, and images/ together.
 """
 
 from __future__ import annotations

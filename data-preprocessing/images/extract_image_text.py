@@ -19,7 +19,8 @@ logo. A document with no remaining figure still gets an empty Parquet
 file, so the next run skips it. Leave MAX_FILES unset only when you mean
 to send every remaining PDF to Gemini. INDEX_FAMILY limits the run to one
 equipment folder. GEMINI_MODEL overrides gemini-3.8-flash. This does not
-rebuild the token files, the BM25 index, or the embedding index.
+rebuild the token files, the BM25 index, or the embedding index. After the
+files exist, rerun those three with REBUILD=1 so the reply can search the figures.
 """
 
 from __future__ import annotations

@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Write BM25 and identifier tokens for one equipment folder.
 
-This reads the finished Parquet shards. It does not open the PDFs and it
-does not build the embedding index. Set INDEX_FAMILY to one folder for a
-test. INDEX_FAMILY=all writes every folder, which is a full read of the
-shards. A folder that already has a finished token file is skipped. library is
-tokenized with three processes. Every other folder stays on one process.
-The tokens and their order are the same either way.
+This reads passage, table, and figure Parquet. It does not open the PDFs
+and it does not build the embedding index. Set INDEX_FAMILY to one folder
+for a test. INDEX_FAMILY=all writes every folder, which is a full read of
+the shards. A folder that already has a finished token file is skipped.
+Set REBUILD=1 after new table or figure files exist, then rebuild BM25 and
+embeddings for that same folder. library is tokenized with three processes.
+Every other folder stays on one process. The tokens and their order are
+the same either way.
 
 Credentials come from the environment. This file does not contain an
 access key.
@@ -48,6 +50,7 @@ def _import_layout() -> None:
 
 _import_layout()
 from asset_layout import family_rank
+from chunk_sources import present_family_globs, rebuild_requested, union_sql
 
 BUCKET = "dats-nlp"
 REGION = "us-east-1"
@@ -146,15 +149,17 @@ def write_family(connection, s3, family: str) -> tuple[int, int]:
     import pyarrow.parquet as pq
 
     key = token_key(family)
-    if finished(s3, key):
+    if finished(s3, key) and not rebuild_requested():
         print(f"skip {family}")
         return 0, 0
-    glob = f"s3://{BUCKET}/{CHUNKS_ROOT}/asset_family={family}/text/*.parquet"
-    escaped = glob.replace("'", "''")
+    globs = present_family_globs(family)
+    if not globs:
+        print(f"no shards {family}")
+        return 0, 0
     cursor = connection.execute(
         f"""
         SELECT chunk_id, document_id, asset_family, page_number, text
-        FROM read_parquet('{escaped}', hive_partitioning = false)
+        FROM ({union_sql(globs)}) sources
         WHERE text IS NOT NULL AND trim(text) <> ''
         """
     )

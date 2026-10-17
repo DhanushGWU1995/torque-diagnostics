@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Build one embedding index per equipment folder.
 
-This reads the passage text in the chunk Parquet. It does not open the
-PDFs and it does not change the BM25 index. The vectors come from one
-English sentence-transformer, BAAI/bge-base-en-v1.5. A passage is embedded
-as stored. A question is embedded with the model's retrieval prefix so the
-two vectors can be compared by cosine similarity.
+This reads passage, table, and figure text. It does not open the PDFs and
+it does not change the BM25 index. The vectors come from one English
+sentence-transformer, BAAI/bge-base-en-v1.5. A row is embedded as stored.
+A question is embedded with the model's retrieval prefix so the two
+vectors can be compared by cosine similarity. Set REBUILD=1 after new
+table or figure files exist. Rebuild the token file and the BM25 index
+for that same folder as well.
 
 Set INDEX_FAMILY to one folder for a test. INDEX_FAMILY=all writes every
 folder. A folder that already has a finished index is skipped. library is
@@ -36,10 +38,11 @@ import numpy as np
 
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent / "bm25"))
+sys.path.insert(0, str(_HERE.parents[2]))
 
 from build_bm25 import BUCKET, REGION, connect, selected_families  # noqa: E402
+from chunk_sources import present_family_globs, rebuild_requested, union_sql  # noqa: E402
 
-CHUNKS_ROOT = "dhanush.mathivanan@gwu.edu/torque-diagnostics/chunks"
 EMBED_ROOT = "dhanush.mathivanan@gwu.edu/torque-diagnostics/index/embeddings"
 MODEL_NAME = "BAAI/bge-base-en-v1.5"
 QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
@@ -60,20 +63,14 @@ def finished(s3, key: str) -> bool:
     return response["Body"].read() == b"PAR1"
 
 
-def chunk_glob(family: str) -> str:
-    local = os.environ.get("CHUNK_PARQUET", "").strip()
-    if local:
-        return str(Path(local) / f"asset_family={family}.parquet")
-    return f"s3://{BUCKET}/{CHUNKS_ROOT}/asset_family={family}/text/*.parquet"
-
-
 def load_passages(connection, family: str) -> list[tuple]:
-    glob = chunk_glob(family)
-    escaped = glob.replace("'", "''")
+    globs = present_family_globs(family)
+    if not globs:
+        return []
     return connection.execute(
         f"""
         SELECT chunk_id, document_id, page_number, text
-        FROM read_parquet('{escaped}', hive_partitioning = false)
+        FROM ({union_sql(globs)}) sources
         WHERE text IS NOT NULL AND trim(text) <> ''
         ORDER BY chunk_id
         """
@@ -180,7 +177,7 @@ def read_table(path: str) -> tuple[np.ndarray, list[dict]]:
 
 def write_family(connection, s3, encoder, family: str) -> int:
     key = embed_key(family)
-    if s3 is not None and finished(s3, key):
+    if s3 is not None and finished(s3, key) and not rebuild_requested():
         print(f"skip {family}", flush=True)
         return 0
     passages = load_passages(connection, family)

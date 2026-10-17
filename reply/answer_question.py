@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Write a technician answer from the retrieved pages, then check it.
 
-The hybrid search supplies the pages. Qwen2.5-7B-Instruct writes the reply
-from those pages only. A statement is kept when one retrieved line states it,
-and that page is cited. DeBERTa v3 checks a statement that is not copied
-verbatim. A procedure that no page states is withheld.
+The hybrid search supplies passage, table, and figure text. Qwen2.5-7B-Instruct
+writes the reply from those rows only. A statement is kept when one retrieved
+line states it, and that page is cited. A table or figure citation names the
+kind. DeBERTa v3 checks a statement that is not copied verbatim. A procedure
+that no retrieved row states is withheld.
 
     QUESTION='What tools are needed to flange-mount an ACS880-11?' \\
         uv run python reply/answer_question.py
@@ -22,13 +23,15 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "data-indexing" / "query"))
 sys.path.insert(0, str(ROOT / "data-indexing" / "bm25"))
 sys.path.insert(0, str(ROOT / "data-indexing" / "embeddings"))
 sys.path.insert(0, str(ROOT / "data-indexing" / "tokenization"))
 
 from build_bm25 import connect, search
-from build_embeddings import chunk_glob, encode_texts, load_encoder, search_vectors
+from build_embeddings import encode_texts, load_encoder, search_vectors
+from chunk_sources import passage_sql_for, source_label
 from manual_tokens import route_families
 from query_bm25 import load_payload
 from query_hybrid import fuse, load_embeddings
@@ -188,12 +191,18 @@ def clauses(claim: str) -> list[str]:
 
 
 def cite_label(rows: list[dict]) -> str:
-    seen: list[tuple[str, int]] = []
+    seen: list[tuple[str, int, str]] = []
     for row in rows:
-        ident = (row["document_id"], row["page_number"])
+        ident = (row["document_id"], row["page_number"], source_label(row.get("chunk_id", "")))
         if ident not in seen:
             seen.append(ident)
-    return "; ".join(f"document {doc}, page {page}" for doc, page in seen)
+    labels = []
+    for doc, page, kind in seen:
+        label = f"document {doc}, page {page}"
+        if kind:
+            label = f"{label}, {kind}"
+        labels.append(label)
+    return "; ".join(labels)
 
 
 def gate(answer: str, passages: list[dict], entails, question: str = "") -> str:
@@ -307,12 +316,13 @@ def load_texts(hits: list[dict]) -> list[dict]:
     for hit in hits:
         by_family.setdefault(hit["asset_family"], []).append(hit)
     for family, family_hits in by_family.items():
-        wanted = {hit["chunk_id"] for hit in family_hits}
-        glob = chunk_glob(family).replace("'", "''")
+        wanted = {str(hit["chunk_id"]) for hit in family_hits}
+        id_list = ", ".join("'" + chunk_id.replace("'", "''") + "'" for chunk_id in sorted(wanted))
         rows = connection.execute(
             f"""
             SELECT chunk_id, document_id, page_number, text
-            FROM read_parquet('{glob}', hive_partitioning = false)
+            FROM ({passage_sql_for(family)}) sources
+            WHERE chunk_id IN ({id_list})
             """
         ).fetchall()
         for chunk_id, document_id, page_number, text in rows:
@@ -334,15 +344,20 @@ def draft(question: str, passages: list[dict]) -> str:
 
     blocks = []
     for row in passages:
-        blocks.append(
-            f"document {row['document_id']}, page {row['page_number']}\n{row['text']}"
-        )
+        kind = source_label(row.get("chunk_id", ""))
+        heading = f"document {row['document_id']}, page {row['page_number']}"
+        if kind:
+            heading = f"{heading}, {kind}"
+        blocks.append(f"{heading}\n{row['text']}")
     system = (
         "You are a technician assistant for ABB manuals. "
         "Write a clear answer in complete sentences that a technician can read aloud. "
         "Copy tool names and steps in the words used by the passages, one fact per sentence. "
         "Name every tool or step the passage lists. "
         "When a passage names the circumstances in one sentence, copy that sentence whole. "
+        "A passage marked table is a ruled table on that page. "
+        "A passage marked figure is the words read from a figure on that page. "
+        "Use a table or a figure the same way as the other passages. "
         "Do not use bullet points. "
         "If any passage states the tools or the steps, write that answer. "
         "Do not add a tool, a step, or a value that the passages do not state. "

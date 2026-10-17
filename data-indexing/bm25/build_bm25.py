@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Build one BM25 word index per equipment folder.
 
-This reads the token Parquet written by build_tokens.py. It does not open
-the PDFs and it does not embed the passages. The question is tokenized
-with the same BM25 tokenizer used to build the file, so a fault code, a
-document id, and a hyphenated phrase such as flange-mounting stay whole.
+This reads the token Parquet written by build_tokens.py, including passage,
+table, and figure rows. It does not open the PDFs and it does not embed
+the rows. The question is tokenized with the same BM25 tokenizer used to
+build the file, so a fault code, a document id, and a hyphenated phrase
+such as flange-mounting stay whole. Set REBUILD=1 after the token file for
+that folder has been rebuilt.
 
 Set INDEX_FAMILY to one folder for a test. INDEX_FAMILY=all writes every
 folder. A folder that already has a finished index is skipped. library is
@@ -53,6 +55,7 @@ def _import_layout() -> None:
 
 _import_layout()
 from asset_layout import family_rank
+from chunk_sources import rebuild_requested
 
 BUCKET = "dats-nlp"
 REGION = "us-east-1"
@@ -190,7 +193,7 @@ def search(payload: dict, question: str, k: int = 5) -> list[dict]:
 
 def write_family(connection, s3, family: str) -> int:
     key = bm25_key(family)
-    if s3 is not None and finished(s3, key):
+    if s3 is not None and finished(s3, key) and not rebuild_requested():
         print(f"skip {family}")
         return 0
     payload = build_payload(load_token_rows(connection, family))

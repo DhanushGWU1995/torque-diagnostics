@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Count what the Parquet shards contain, per equipment folder.
+"""Count passage, table, and figure Parquet, per equipment folder.
 
-Polars writes each shard. DuckDB reads those finished shards and reports
-how many passages, tracing pages, fault codes, parts, and procedures each
-family actually stored. It does not answer a technician question. The
-chatbot reads the BM25 and embedding indexes, not this report.
+DuckDB reads the finished shards under text/, tables/, and images/. The
+report counts each kind, including a shard that stored no rows, plus the
+tracing pages, fault codes, parts, and procedures on the text shards. It
+does not answer a technician question. The chatbot reads the BM25 and
+embedding indexes, not this report.
 
 Credentials come from the environment. This file does not contain an
 access key. From a clone of the repo, at the repository root:
@@ -13,7 +14,7 @@ access key. From a clone of the repo, at the repository root:
     uv run python data-preprocessing/coverage_duckdb.py
 
 The report is written to coverage.txt in the working directory. Run it
-once, after chunking has finished.
+after chunking, and again after table or image extraction.
 """
 
 from __future__ import annotations
@@ -22,6 +23,10 @@ import os
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from chunk_sources import KINDS, union_sql
+
 BUCKET = "dats-nlp"
 REGION = "us-east-1"
 CHUNKS_ROOT = "dhanush.mathivanan@gwu.edu/torque-diagnostics/chunks"
@@ -29,10 +34,15 @@ REPORT_NAME = "coverage.txt"
 
 COLUMNS = (
     "asset_family",
-    "shards",
-    "shards_without_passages",
-    "passages",
-    "blank_passages",
+    "text_shards",
+    "table_shards",
+    "image_shards",
+    "text_rows",
+    "table_rows",
+    "image_rows",
+    "blank_text",
+    "blank_tables",
+    "blank_images",
     "tracing_passages",
     "fault_passages",
     "part_passages",
@@ -40,23 +50,23 @@ COLUMNS = (
 )
 
 
-def shard_identity(key: str) -> tuple[str, str] | None:
+def shard_identity(key: str) -> tuple[str, str, str] | None:
     marker = "/asset_family="
     if marker not in key or not key.endswith(".parquet"):
         return None
     parts = key.split(marker, 1)[1].split("/")
-    if len(parts) != 3 or parts[1] != "text" or not parts[2].endswith(".parquet"):
+    if len(parts) != 3 or parts[1] not in KINDS or not parts[2].endswith(".parquet"):
         return None
-    family, filename = parts[0], parts[2]
+    family, kind, filename = parts
     if not family:
         return None
-    return family, filename[: -len(".parquet")]
+    return family, filename[: -len(".parquet")], kind
 
 
-def list_s3_shards() -> list[tuple[str, str]]:
+def list_s3_shards() -> list[tuple[str, str, str]]:
     import boto3
 
-    found: list[tuple[str, str]] = []
+    found: list[tuple[str, str, str]] = []
     paginator = boto3.client("s3", region_name=REGION).get_paginator("list_objects_v2")
     for page in paginator.paginate(Bucket=BUCKET, Prefix=f"{CHUNKS_ROOT}/"):
         for item in page.get("Contents", []):
@@ -66,8 +76,8 @@ def list_s3_shards() -> list[tuple[str, str]]:
     return found
 
 
-def list_local_shards(root: Path) -> list[tuple[str, str]]:
-    found: list[tuple[str, str]] = []
+def list_local_shards(root: Path) -> list[tuple[str, str, str]]:
+    found: list[tuple[str, str, str]] = []
     for path in root.rglob("*.parquet"):
         parsed = shard_identity(path.as_posix())
         if parsed is not None:
@@ -94,55 +104,104 @@ def connect():
     return connection
 
 
-def coverage_sql(parquet_glob: str) -> str:
-    escaped = parquet_glob.replace("'", "''")
-    return f"""
-        SELECT
-            asset_family,
-            count(DISTINCT document_id) AS documents_with_passages,
-            count(*) AS passages,
-            count(*) FILTER (
-                WHERE text IS NULL OR trim(text) = ''
-            ) AS blank_passages,
-            count(*) FILTER (WHERE tracing_page) AS tracing_passages,
-            count(*) FILTER (
-                WHERE coalesce(fault_code, '') <> ''
-            ) AS fault_passages,
-            count(*) FILTER (WHERE coalesce(part, '') <> '') AS part_passages,
-            count(*) FILTER (
-                WHERE coalesce(procedure, '') <> ''
-            ) AS procedure_passages
-        FROM read_parquet('{escaped}', hive_partitioning = false)
-        GROUP BY asset_family
-    """
+def kind_globs(base: str, kinds: set[str]) -> dict[str, str]:
+    return {
+        kind: f"{base}/asset_family=*/{kind}/*.parquet"
+        for kind in KINDS
+        if kind in kinds
+    }
 
 
-def report_rows(connection, parquet_glob: str, shards: list[tuple[str, str]]):
-    connection.execute("CREATE TEMP TABLE shard_files (asset_family VARCHAR, document_id VARCHAR)")
-    connection.executemany("INSERT INTO shard_files VALUES (?, ?)", shards)
+def report_rows(connection, globs: dict[str, str], shards: list[tuple[str, str, str]]):
+    connection.execute(
+        "CREATE TEMP TABLE shard_files (asset_family VARCHAR, document_id VARCHAR, source_kind VARCHAR)"
+    )
+    connection.executemany("INSERT INTO shard_files VALUES (?, ?, ?)", shards)
+    if globs:
+        row_source = f"""
+            SELECT asset_family, source_kind,
+                count(*) AS row_count,
+                count(*) FILTER (
+                    WHERE text IS NULL OR trim(CAST(text AS VARCHAR)) = ''
+                ) AS blank_count
+            FROM ({union_sql(globs)}) sources
+            GROUP BY asset_family, source_kind
+        """
+    else:
+        row_source = """
+            SELECT CAST(NULL AS VARCHAR) AS asset_family,
+                CAST(NULL AS VARCHAR) AS source_kind,
+                0 AS row_count,
+                0 AS blank_count
+            WHERE false
+        """
+    if "text" in globs:
+        escaped = globs["text"].replace("'", "''")
+        text_source = f"""
+            SELECT asset_family,
+                count(*) FILTER (WHERE tracing_page) AS tracing_passages,
+                count(*) FILTER (WHERE coalesce(fault_code, '') <> '') AS fault_passages,
+                count(*) FILTER (WHERE coalesce(part, '') <> '') AS part_passages,
+                count(*) FILTER (WHERE coalesce(procedure, '') <> '') AS procedure_passages
+            FROM read_parquet('{escaped}', hive_partitioning = false)
+            GROUP BY asset_family
+        """
+    else:
+        text_source = """
+            SELECT CAST(NULL AS VARCHAR) AS asset_family,
+                0 AS tracing_passages,
+                0 AS fault_passages,
+                0 AS part_passages,
+                0 AS procedure_passages
+            WHERE false
+        """
     return connection.execute(
         f"""
-        WITH passage_counts AS (
-            {coverage_sql(parquet_glob)}
-        ),
-        shard_counts AS (
-            SELECT asset_family, count(*) AS shards
+        WITH shard_counts AS (
+            SELECT
+                asset_family,
+                count(*) FILTER (WHERE source_kind = 'text') AS text_shards,
+                count(*) FILTER (WHERE source_kind = 'tables') AS table_shards,
+                count(*) FILTER (WHERE source_kind = 'images') AS image_shards
             FROM shard_files
             GROUP BY asset_family
+        ),
+        row_counts AS (
+            {row_source}
+        ),
+        row_pivot AS (
+            SELECT
+                asset_family,
+                coalesce(max(CASE WHEN source_kind = 'text' THEN row_count END), 0) AS text_rows,
+                coalesce(max(CASE WHEN source_kind = 'tables' THEN row_count END), 0) AS table_rows,
+                coalesce(max(CASE WHEN source_kind = 'images' THEN row_count END), 0) AS image_rows,
+                coalesce(max(CASE WHEN source_kind = 'text' THEN blank_count END), 0) AS blank_text,
+                coalesce(max(CASE WHEN source_kind = 'tables' THEN blank_count END), 0) AS blank_tables,
+                coalesce(max(CASE WHEN source_kind = 'images' THEN blank_count END), 0) AS blank_images
+            FROM row_counts
+            GROUP BY asset_family
+        ),
+        text_counts AS (
+            {text_source}
         )
         SELECT
             shard_counts.asset_family,
-            shard_counts.shards,
-            shard_counts.shards - coalesce(passage_counts.documents_with_passages, 0)
-                AS shards_without_passages,
-            coalesce(passage_counts.passages, 0) AS passages,
-            coalesce(passage_counts.blank_passages, 0) AS blank_passages,
-            coalesce(passage_counts.tracing_passages, 0) AS tracing_passages,
-            coalesce(passage_counts.fault_passages, 0) AS fault_passages,
-            coalesce(passage_counts.part_passages, 0) AS part_passages,
-            coalesce(passage_counts.procedure_passages, 0) AS procedure_passages
+            shard_counts.text_shards,
+            shard_counts.table_shards,
+            shard_counts.image_shards,
+            coalesce(row_pivot.text_rows, 0),
+            coalesce(row_pivot.table_rows, 0),
+            coalesce(row_pivot.image_rows, 0),
+            coalesce(row_pivot.blank_text, 0),
+            coalesce(row_pivot.blank_tables, 0),
+            coalesce(row_pivot.blank_images, 0),
+            coalesce(text_counts.tracing_passages, 0),
+            coalesce(text_counts.fault_passages, 0),
+            coalesce(text_counts.part_passages, 0),
+            coalesce(text_counts.procedure_passages, 0)
         FROM shard_counts
-        LEFT JOIN passage_counts USING (asset_family)
+        LEFT JOIN row_pivot USING (asset_family)
+        LEFT JOIN text_counts USING (asset_family)
         ORDER BY shard_counts.asset_family
         """
     ).fetchall()
@@ -169,18 +228,19 @@ def main() -> int:
             print(f"COVERAGE_PARQUET is not a directory: {root}", file=sys.stderr)
             return 1
         shards = list_local_shards(root)
-        parquet_glob = str(root / "**" / "*.parquet")
+        base = root.as_posix()
         import duckdb
 
         connection = duckdb.connect()
     else:
         shards = list_s3_shards()
-        parquet_glob = f"s3://{BUCKET}/{CHUNKS_ROOT}/asset_family=*/text/*.parquet"
+        base = f"s3://{BUCKET}/{CHUNKS_ROOT}"
         connection = connect()
     if not shards:
         print("No Parquet shards found.", file=sys.stderr)
         return 1
-    write_report(report_rows(connection, parquet_glob, shards))
+    globs = kind_globs(base, {kind for _family, _document_id, kind in shards})
+    write_report(report_rows(connection, globs, shards))
     return 0
 
 

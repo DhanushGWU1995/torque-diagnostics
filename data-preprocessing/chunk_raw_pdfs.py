@@ -29,6 +29,10 @@ is written to
 
     s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/chunks/asset_family=<family>/text/<document_id>.parquet
 
+This script writes the text layer only. Ruled tables go to tables/ and
+figure text goes to images/, from the table and image scripts. Coverage,
+tokenization, embeddings, BM25, and the reply read all three folders.
+
 The family is the raw folder name. asset_layout.py names that folder from
 the title: an ACS880 frame, a firmware manual, or another series such as
 COM600. The shard uses the same name, so a question for one series reads

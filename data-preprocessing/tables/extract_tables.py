@@ -14,7 +14,8 @@ Each PDF under raw/<family>/<kind>/<document_id>.pdf is written to
 A document with no ruled table still gets an empty Parquet file, so the
 next run skips it. Leave MAX_FILES unset to process every remaining PDF.
 INDEX_FAMILY limits the run to one equipment folder. This does not rebuild
-the token files, the BM25 index, or the embedding index.
+the token files, the BM25 index, or the embedding index. After the files
+exist, rerun those three with REBUILD=1 so the reply can search the tables.
 """
 
 from __future__ import annotations
