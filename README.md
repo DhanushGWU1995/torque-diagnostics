@@ -45,7 +45,7 @@ After chunking has finished, DuckDB reads the shards and writes a coverage count
 uv run python data-preprocessing/coverage_duckdb.py
 ```
 
-Table text and image text are separate Parquet files. They do not replace the passage shards, and they do not rebuild the token, BM25, or embedding indexes. `data-preprocessing/tables/extract_tables.py` uses pdfplumber on ruled tables. `data-preprocessing/images/extract_image_text.py` sends a cropped figure to Gemini. Set `GEMINI_API_KEY` for that script. A small image and a logo repeated across pages are skipped. Start with one family and a short batch.
+Table text and image text are stored under the same family folder as the passages: `chunks/asset_family=<family>/tables/` and `chunks/asset_family=<family>/images/`. They do not replace `<document_id>.parquet`, and they do not rebuild the token, BM25, or embedding indexes. `data-preprocessing/tables/extract_tables.py` uses pdfplumber on ruled tables. `data-preprocessing/images/extract_image_text.py` sends a cropped figure to Gemini. Set `GEMINI_API_KEY` for that script. A small image and a logo repeated across pages are skipped. Start with one family and a short batch.
 
 ```bash
 INDEX_FAMILY=ACS880-11 MAX_FILES=20 uv run python data-preprocessing/tables/extract_tables.py

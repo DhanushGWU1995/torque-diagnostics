@@ -45,7 +45,7 @@ def shard_identity(key: str) -> tuple[str, str] | None:
     if marker not in key or not key.endswith(".parquet"):
         return None
     family, _, filename = key.split(marker, 1)[1].partition("/")
-    if not family or not filename.endswith(".parquet"):
+    if not family or "/" in filename or not filename.endswith(".parquet"):
         return None
     return family, filename[: -len(".parquet")]
 

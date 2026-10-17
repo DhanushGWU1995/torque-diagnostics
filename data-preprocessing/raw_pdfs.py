@@ -54,8 +54,9 @@ def parse_raw_key(key: str) -> tuple[str, str] | None:
     return family, document_id
 
 
-def output_key(folder: str, family: str, document_id: str) -> str:
-    return f"{PREFIX}/{folder}/asset_family={family}/{document_id}.parquet"
+def output_key(kind: str, family: str, document_id: str) -> str:
+    """Parquet under the family folder. The passage file keeps its own name."""
+    return f"{PREFIX}/chunks/asset_family={family}/{kind}/{document_id}.parquet"
 
 
 def list_objects(s3, prefix: str) -> list[dict]:
@@ -103,9 +104,15 @@ def finished_shard_keys(s3, items: list[dict]) -> set[str]:
     return finished
 
 
-def discover(s3, folder: str) -> tuple[list[Task], int]:
+def discover(s3, kind: str) -> tuple[list[Task], int]:
     family_filter = selected_family()
-    existing = finished_shard_keys(s3, list_objects(s3, f"{PREFIX}/{folder}"))
+    marker = f"/{kind}/"
+    items = [
+        item
+        for item in list_objects(s3, f"{PREFIX}/chunks")
+        if marker in str(item.get("Key", ""))
+    ]
+    existing = finished_shard_keys(s3, items)
     pending: list[Task] = []
     seen: set[str] = set()
     for item in list_objects(s3, RAW_ROOT):
@@ -115,7 +122,7 @@ def discover(s3, folder: str) -> tuple[list[Task], int]:
         family, document_id = parsed
         if family_filter and family != family_filter:
             continue
-        output = output_key(folder, family, document_id)
+        output = output_key(kind, family, document_id)
         if output in existing or output in seen:
             continue
         seen.add(output)

@@ -9,7 +9,7 @@ table is left for the image script. From the repository root:
 
 Each PDF under raw/<family>/<kind>/<document_id>.pdf is written to
 
-    s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/tables/asset_family=<family>/<document_id>.parquet
+    s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/chunks/asset_family=<family>/tables/<document_id>.parquet
 
 A document with no ruled table still gets an empty Parquet file, so the
 next run skips it. Leave MAX_FILES unset to process every remaining PDF.

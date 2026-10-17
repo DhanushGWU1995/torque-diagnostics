@@ -11,7 +11,7 @@ environment:
 
 Each PDF under raw/<family>/<kind>/<document_id>.pdf is written to
 
-    s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/images/asset_family=<family>/<document_id>.parquet
+    s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/chunks/asset_family=<family>/images/<document_id>.parquet
 
 A figure smaller than MIN_IMAGE_PX (default 120) is skipped. A figure that
 is repeated on more than two pages is skipped, because that is usually a
