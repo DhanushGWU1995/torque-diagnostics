@@ -45,6 +45,14 @@ After chunking has finished, DuckDB reads the shards and writes a coverage count
 uv run python data-preprocessing/coverage_duckdb.py
 ```
 
+Table text and image text are separate Parquet files. They do not replace the passage shards, and they do not rebuild the token, BM25, or embedding indexes. `data-preprocessing/tables/extract_tables.py` uses pdfplumber on ruled tables. `data-preprocessing/images/extract_image_text.py` sends a cropped figure to Gemini. Set `GEMINI_API_KEY` for that script. A small image and a logo repeated across pages are skipped. Start with one family and a short batch.
+
+```bash
+INDEX_FAMILY=ACS880-11 MAX_FILES=20 uv run python data-preprocessing/tables/extract_tables.py
+export GEMINI_API_KEY='...'
+INDEX_FAMILY=ACS880-11 MAX_FILES=5 uv run python data-preprocessing/images/extract_image_text.py
+```
+
 The indexing step tokenizes those passages. It does not embed them yet. Tokenizers live in `data-indexing/tokenization`. The identifier tokenizer keeps a frame, firmware name, fault code, parameter, and document id whole. The same longest match covers every drive family, so ACS580-01 reads the ACS580 folder and ACS880-04 reads the ACS880-04 folder. A drive or product whose manuals stayed in library, such as ACH550 or IRC5, reads library. The BM25 tokenizer lowercases, keeps a hyphenated token and its pieces, and does not stem. Run one equipment folder first.
 
 ```bash

@@ -20,4 +20,10 @@ coverage.txt
 token_status.txt
 bm25_status.txt
 embeddings_status.txt
+table_status.txt
+table_remaining.txt
+table_failed.txt
+image_status.txt
+image_remaining.txt
+image_failed.txt
 __pycache__/
