@@ -44,8 +44,11 @@ def shard_identity(key: str) -> tuple[str, str] | None:
     marker = "/asset_family="
     if marker not in key or not key.endswith(".parquet"):
         return None
-    family, _, filename = key.split(marker, 1)[1].partition("/")
-    if not family or "/" in filename or not filename.endswith(".parquet"):
+    parts = key.split(marker, 1)[1].split("/")
+    if len(parts) != 3 or parts[1] != "text" or not parts[2].endswith(".parquet"):
+        return None
+    family, filename = parts[0], parts[2]
+    if not family:
         return None
     return family, filename[: -len(".parquet")]
 
@@ -172,7 +175,7 @@ def main() -> int:
         connection = duckdb.connect()
     else:
         shards = list_s3_shards()
-        parquet_glob = f"s3://{BUCKET}/{CHUNKS_ROOT}/**/*.parquet"
+        parquet_glob = f"s3://{BUCKET}/{CHUNKS_ROOT}/asset_family=*/text/*.parquet"
         connection = connect()
     if not shards:
         print("No Parquet shards found.", file=sys.stderr)

@@ -64,7 +64,7 @@ def chunk_glob(family: str) -> str:
     local = os.environ.get("CHUNK_PARQUET", "").strip()
     if local:
         return str(Path(local) / f"asset_family={family}.parquet")
-    return f"s3://{BUCKET}/{CHUNKS_ROOT}/asset_family={family}/*.parquet"
+    return f"s3://{BUCKET}/{CHUNKS_ROOT}/asset_family={family}/text/*.parquet"
 
 
 def load_passages(connection, family: str) -> list[tuple]:

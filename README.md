@@ -31,7 +31,7 @@ uv run python data-preprocessing/chunk_raw_pdfs.py
 
 The upload script reads `ABB_100GB_Download_List.csv` from the current directory or from the repository root. It stores each PDF at `raw/<equipment>/<document-kind>/<document_id>.pdf`. The equipment folder is the ACS880 frame, a firmware manual, or another series named in the title, such as COM600 or REC615. Catalogues, articles, brochures, and technical files with no series in the title stay in `library`. A PDF already at that key is skipped, so running the script again does not download it a second time.
 
-The chunking script reads those raw keys and writes Parquet under `chunks/asset_family=<family>/`, using the equipment folder as the family. A shard is skipped only when its Parquet footer is intact. At the start of a run it rewrites `chunk_remaining.txt` from the raw keys that still have no finished shard, and writes the counts to `chunk_status.txt`. A key that is no longer in the bucket is left off that list. Set `MAX_FILES` to convert one batch and then stop. `MAX_FILES=100` is a safe batch on the project EC2. Leave it unset to process every remaining PDF.
+The chunking script reads those raw keys and writes Parquet under `chunks/asset_family=<family>/text/`, using the equipment folder as the family. A shard is skipped only when its Parquet footer is intact. At the start of a run it rewrites `chunk_remaining.txt` from the raw keys that still have no finished shard, and writes the counts to `chunk_status.txt`. A key that is no longer in the bucket is left off that list. Set `MAX_FILES` to convert one batch and then stop. `MAX_FILES=100` is a safe batch on the project EC2. Leave it unset to process every remaining PDF.
 
 ```bash
 MAX_FILES=100 uv run python data-preprocessing/chunk_raw_pdfs.py
@@ -45,7 +45,7 @@ After chunking has finished, DuckDB reads the shards and writes a coverage count
 uv run python data-preprocessing/coverage_duckdb.py
 ```
 
-Table text and image text are stored under the same family folder as the passages: `chunks/asset_family=<family>/tables/` and `chunks/asset_family=<family>/images/`. They do not replace `<document_id>.parquet`, and they do not rebuild the token, BM25, or embedding indexes. `data-preprocessing/tables/extract_tables.py` uses pdfplumber on ruled tables. `data-preprocessing/images/extract_image_text.py` sends a cropped figure to Gemini. Set `GEMINI_API_KEY` for that script. A small image and a logo repeated across pages are skipped. Start with one family and a short batch.
+Table text and image text use the same family folder, in `tables/` and `images/` next to `text/`. A passage file, a table file, and an image file can share a document id because each kind has its own folder. These scripts do not rebuild the token, BM25, or embedding indexes. `data-preprocessing/tables/extract_tables.py` uses pdfplumber on ruled tables. `data-preprocessing/images/extract_image_text.py` sends a cropped figure to Gemini. Set `GEMINI_API_KEY` for that script. A small image and a logo repeated across pages are skipped. Start with one family and a short batch.
 
 ```bash
 INDEX_FAMILY=ACS880-11 MAX_FILES=20 uv run python data-preprocessing/tables/extract_tables.py

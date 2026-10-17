@@ -27,7 +27,7 @@ Each PDF under
 
 is written to
 
-    s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/chunks/asset_family=<family>/<document_id>.parquet
+    s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/chunks/asset_family=<family>/text/<document_id>.parquet
 
 The family is the raw folder name. asset_layout.py names that folder from
 the title: an ACS880 frame, a firmware manual, or another series such as
@@ -151,7 +151,7 @@ def parse_raw_key(key: str) -> tuple[str, str] | None:
 
 
 def parquet_key(family: str, document_id: str) -> str:
-    return f"{CHUNKS_ROOT}/asset_family={family}/{document_id}.parquet"
+    return f"{CHUNKS_ROOT}/asset_family={family}/text/{document_id}.parquet"
 
 
 def clean_text(text: str) -> str:

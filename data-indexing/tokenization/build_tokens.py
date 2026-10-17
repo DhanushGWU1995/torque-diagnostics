@@ -149,7 +149,7 @@ def write_family(connection, s3, family: str) -> tuple[int, int]:
     if finished(s3, key):
         print(f"skip {family}")
         return 0, 0
-    glob = f"s3://{BUCKET}/{CHUNKS_ROOT}/asset_family={family}/*.parquet"
+    glob = f"s3://{BUCKET}/{CHUNKS_ROOT}/asset_family={family}/text/*.parquet"
     escaped = glob.replace("'", "''")
     cursor = connection.execute(
         f"""
