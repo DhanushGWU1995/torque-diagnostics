@@ -23,8 +23,19 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+def _import_sources() -> None:
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / "chunk_sources.py").is_file():
+            root = str(parent)
+            if root not in sys.path:
+                sys.path.insert(0, root)
+            return
+    raise ImportError("chunk_sources.py was not found above this script")
+
+
+_import_sources()
 from chunk_sources import KINDS, union_sql
 
 BUCKET = "dats-nlp"
