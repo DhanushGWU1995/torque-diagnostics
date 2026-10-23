@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Write a technician answer from the retrieved pages, then check it.
 
-The hybrid search supplies passage, table, and figure text. Qwen2.5-7B-Instruct
-writes the reply from those rows only. A statement is kept when one retrieved
-line states it, and that page is cited. A table or figure citation names the
-kind. DeBERTa v3 checks a statement that is not copied verbatim. A procedure
-that no retrieved row states is withheld.
+The hybrid search supplies the passage text. Qwen2.5-7B-Instruct writes the
+reply from those rows only. A statement is kept when one retrieved line
+states it, and that page is cited. DeBERTa v3 checks a statement that is not
+copied verbatim. A procedure that no retrieved row states is withheld.
 
     QUESTION='What tools are needed to flange-mount an ACS880-11?' \\
         uv run python reply/answer_question.py
