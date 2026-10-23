@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""Score retrieval and the confidence check on hand-checked questions.
+"""Score the answer's cited pages against the hand-checked pages.
 
 Each line of the question file is one JSON object with an id, a question,
-and the pages that support it. A page is relevant when its document id and
-page number are in that list. The top passages come from the same hybrid
-search the reply uses. Precision, recall, and F1 use the distinct pages in
-those passages. MRR uses the rank of the first relevant page.
+and the pages that support it. Precision, recall, F1, and MRR use the
+pages the answer cites, in the order they appear. A cited page is correct
+when its document id and page number are in that list. MRR uses the
+position of the first correct citation. The indexes are not rebuilt.
 
-Set ANSWER=1 to also run Qwen and the confidence gate. That step is skipped
-otherwise, so the retrieval scores do not load the language model. The
-indexes are not rebuilt.
+Set ANSWER=1 to run Qwen and the confidence gate. Without it there is no
+prediction to score.
 
     uv run python reply/evaluate_answers.py
 
@@ -50,24 +49,34 @@ def page_key(document_id: object, page_number: object) -> tuple[str, int]:
     return str(document_id), int(page_number)
 
 
-def ranked_pages(hits: list[dict]) -> list[tuple[str, int]]:
-    """Distinct pages in the order of their first retrieved passage."""
+def prediction_scores(
+    predicted: list[tuple[str, int]],
+    relevant: list[dict],
+    withheld: bool,
+    expect_withhold: bool,
+) -> dict[str, float | int]:
+    """Score the pages the answer cites against the hand-checked pages."""
     ordered: list[tuple[str, int]] = []
-    for hit in hits:
-        key = page_key(hit["document_id"], hit["page_number"])
-        if key not in ordered:
-            ordered.append(key)
-    return ordered
-
-
-def retrieval_scores(hits: list[dict], relevant: list[dict], k: int) -> dict[str, float | int]:
+    for page in predicted:
+        if page not in ordered:
+            ordered.append(page)
     gold = {page_key(item["document_id"], item["page_number"]) for item in relevant}
-    pages = ranked_pages(hits[:k])
-    matched = [page for page in pages if page in gold]
-    precision = len(matched) / len(pages) if pages else 0.0
+    if expect_withhold:
+        correct = withheld
+        value = 1.0 if correct else 0.0
+        return {
+            "precision": value,
+            "recall": value,
+            "f1": value,
+            "mrr": value,
+            "rank": 1 if correct else 0,
+            "matched": 1 if correct else 0,
+        }
+    matched = [page for page in ordered if page in gold]
+    precision = len(matched) / len(ordered) if ordered else 0.0
     recall = len(matched) / len(gold) if gold else 0.0
     f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
-    rank = next((index for index, page in enumerate(pages, start=1) if page in gold), 0)
+    rank = next((index for index, page in enumerate(ordered, start=1) if page in gold), 0)
     mrr = 1 / rank if rank else 0.0
     return {
         "precision": precision,
@@ -76,8 +85,6 @@ def retrieval_scores(hits: list[dict], relevant: list[dict], k: int) -> dict[str
         "mrr": mrr,
         "rank": rank,
         "matched": len(matched),
-        "retrieved_pages": len(pages),
-        "relevant_pages": len(gold),
     }
 
 
@@ -150,53 +157,61 @@ def format_row(item: dict, scores: dict[str, float | int], released: str, check:
     return line
 
 
-def evaluate(questions: list[dict], k: int, run_answer: bool) -> str:
-    lines = [f"k={k}", "id\tprecision\trecall\tf1\tmrr\trank\trelevant\tconfidence"]
-    retrieval_rows = []
+def evaluate(questions: list[dict], k: int) -> str:
+    lines = [
+        f"k={k}",
+        "precision, recall, f1, and mrr score the pages cited in the answer",
+        "id\tprecision\trecall\tf1\tmrr\trank\trelevant\tconfidence",
+    ]
+    scored = []
     for item in questions:
         families = route_families(item["question"])
         hits = retrieve(item["question"], families, k)
-        scores = retrieval_scores(hits, item.get("relevant", []), k)
-        if item.get("relevant"):
-            retrieval_rows.append(scores)
-        released = ""
-        check = ""
-        if run_answer:
-            released, check, calls = answer_one(item["question"], hits)
-            if item.get("withhold"):
-                check = f"{check}; correct={str(check == 'withheld').lower()}"
-            elif item.get("relevant"):
-                gold = {page_key(page["document_id"], page["page_number"]) for page in item["relevant"]}
-                cited = set(cited_pages(released))
-                supported = check != "withheld" and bool(cited & gold)
-                check = f"{check}; deberta_calls={calls}; cited_relevant={str(supported).lower()}"
-        lines.append(format_row(item, scores, released, check))
-    if retrieval_rows:
-        lines.append(
-            "macro\t"
-            f"precision={mean([float(row['precision']) for row in retrieval_rows]):.3f}\t"
-            f"recall={mean([float(row['recall']) for row in retrieval_rows]):.3f}\t"
-            f"f1={mean([float(row['f1']) for row in retrieval_rows]):.3f}\t"
-            f"mrr={mean([float(row['mrr']) for row in retrieval_rows]):.3f}"
+        released, check, calls = answer_one(item["question"], hits)
+        withheld = check == "withheld"
+        scores = prediction_scores(
+            cited_pages(released),
+            item.get("relevant", []),
+            withheld,
+            bool(item.get("withhold")),
         )
+        scored.append(scores)
+        check = f"{check}; deberta_calls={calls}"
+        lines.append(format_row(item, scores, released, check))
+    lines.append(
+        "macro\t"
+        f"precision={mean([float(row['precision']) for row in scored]):.3f}\t"
+        f"recall={mean([float(row['recall']) for row in scored]):.3f}\t"
+        f"f1={mean([float(row['f1']) for row in scored]):.3f}\t"
+        f"mrr={mean([float(row['mrr']) for row in scored]):.3f}"
+    )
     return "\n".join(lines) + "\n"
 
 
 def check_metrics() -> None:
-    hits = [
-        {"document_id": "A", "page_number": 2},
-        {"document_id": "A", "page_number": 2},
-        {"document_id": "B", "page_number": 9},
-        {"document_id": "C", "page_number": 1},
+    one = [{"document_id": "3AXD50000349838", "page_number": 17}]
+    flange = prediction_scores([("3AXD50000349838", 17)], one, False, False)
+    assert flange["precision"] == 1
+    assert flange["recall"] == 1
+    assert flange["f1"] == 1
+    assert flange["mrr"] == 1
+    acs_gold = [
+        {"document_id": "3AXD50000034052", "page_number": 68},
+        {"document_id": "3ABD00069490", "page_number": 27},
     ]
-    relevant = [{"document_id": "B", "page_number": 9}, {"document_id": "D", "page_number": 4}]
-    scores = retrieval_scores(hits, relevant, 4)
-    assert scores["rank"] == 2
-    assert scores["mrr"] == 0.5
-    assert scores["matched"] == 1
-    assert scores["retrieved_pages"] == 3
-    assert abs(float(scores["precision"]) - 1 / 3) < 1e-9
-    assert abs(float(scores["recall"]) - 0.5) < 1e-9
+    acs = prediction_scores(
+        [("3AXD50000034052", 68), ("3AXD50000034052", 213)],
+        acs_gold,
+        False,
+        False,
+    )
+    assert abs(float(acs["precision"]) - 0.5) < 1e-9
+    assert abs(float(acs["recall"]) - 0.5) < 1e-9
+    assert abs(float(acs["f1"]) - 0.5) < 1e-9
+    assert acs["rank"] == 1
+    assert acs["mrr"] == 1
+    missed = prediction_scores([], one, True, False)
+    assert missed["f1"] == 0
     assert confidence_label(WITHHOLD, 0) == "withheld"
     assert confidence_label("Use a torque wrench (document A, page 2).", 0) == "copied-sentence"
     assert confidence_label("Use a torque wrench (document A, page 2).", 1) == "deberta"
@@ -209,9 +224,11 @@ def main() -> int:
     if not path.is_file():
         print(f"Question file not found: {path}", file=sys.stderr)
         return 1
+    if os.environ.get("ANSWER", "").strip() != "1":
+        print("Set ANSWER=1. Precision, recall, F1, and MRR score the pages the answer cites.", file=sys.stderr)
+        return 1
     k = int(os.environ.get("TOP_K", "15"))
-    run_answer = os.environ.get("ANSWER", "").strip() == "1"
-    report = evaluate(load_questions(path), k, run_answer)
+    report = evaluate(load_questions(path), k)
     Path(REPORT_NAME).write_text(report, encoding="utf-8")
     print(report, end="")
     return 0
