@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Build one embedding index per equipment folder.
 
-This reads passage, table, and figure text. It does not open the PDFs and
-it does not change the BM25 index. The vectors come from one English
-sentence-transformer, BAAI/bge-base-en-v1.5. A row is embedded as stored.
-A question is embedded with the model's retrieval prefix so the two
-vectors can be compared by cosine similarity. Set REBUILD=1 after new
-table or figure files exist. Rebuild the token file and the BM25 index
-for that same folder as well.
+This reads passage Parquet under chunks/asset_family=<family>/. It does
+not open the PDFs and it does not change the BM25 index. The vectors come
+from one English sentence-transformer, BAAI/bge-base-en-v1.5. A row is
+embedded as stored. A question is embedded with the model's retrieval
+prefix so the two vectors can be compared by cosine similarity. A folder
+that already has a finished embedding file is skipped.
 
 Set INDEX_FAMILY to one folder for a test. INDEX_FAMILY=all writes every
 folder. A folder that already has a finished index is skipped. library is
@@ -41,7 +40,7 @@ sys.path.insert(0, str(_HERE.parent / "bm25"))
 sys.path.insert(0, str(_HERE.parents[2]))
 
 from build_bm25 import BUCKET, REGION, connect, selected_families  # noqa: E402
-from chunk_sources import present_family_globs, rebuild_requested, union_sql  # noqa: E402
+from chunk_sources import passage_sql_for, passages_present, rebuild_requested  # noqa: E402
 
 EMBED_ROOT = "dhanush.mathivanan@gwu.edu/torque-diagnostics/index/embeddings"
 MODEL_NAME = "BAAI/bge-base-en-v1.5"
@@ -64,13 +63,12 @@ def finished(s3, key: str) -> bool:
 
 
 def load_passages(connection, family: str) -> list[tuple]:
-    globs = present_family_globs(family)
-    if not globs:
+    if not passages_present(family):
         return []
     return connection.execute(
         f"""
         SELECT chunk_id, document_id, page_number, text
-        FROM ({union_sql(globs)}) sources
+        FROM ({passage_sql_for(family)}) sources
         WHERE text IS NOT NULL AND trim(text) <> ''
         ORDER BY chunk_id
         """

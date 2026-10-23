@@ -31,7 +31,7 @@ sys.path.insert(0, str(ROOT / "data-indexing" / "tokenization"))
 
 from build_bm25 import connect, search
 from build_embeddings import encode_texts, load_encoder, search_vectors
-from chunk_sources import passage_sql_for, source_label
+from chunk_sources import passage_sql_for
 from manual_tokens import route_families
 from query_bm25 import load_payload
 from query_hybrid import fuse, load_embeddings
@@ -191,18 +191,12 @@ def clauses(claim: str) -> list[str]:
 
 
 def cite_label(rows: list[dict]) -> str:
-    seen: list[tuple[str, int, str]] = []
+    seen: list[tuple[str, int]] = []
     for row in rows:
-        ident = (row["document_id"], row["page_number"], source_label(row.get("chunk_id", "")))
+        ident = (row["document_id"], row["page_number"])
         if ident not in seen:
             seen.append(ident)
-    labels = []
-    for doc, page, kind in seen:
-        label = f"document {doc}, page {page}"
-        if kind:
-            label = f"{label}, {kind}"
-        labels.append(label)
-    return "; ".join(labels)
+    return "; ".join(f"document {doc}, page {page}" for doc, page in seen)
 
 
 def gate(answer: str, passages: list[dict], entails, question: str = "") -> str:
@@ -344,10 +338,7 @@ def draft(question: str, passages: list[dict]) -> str:
 
     blocks = []
     for row in passages:
-        kind = source_label(row.get("chunk_id", ""))
         heading = f"document {row['document_id']}, page {row['page_number']}"
-        if kind:
-            heading = f"{heading}, {kind}"
         blocks.append(f"{heading}\n{row['text']}")
     system = (
         "You are a technician assistant for ABB manuals. "
@@ -355,9 +346,6 @@ def draft(question: str, passages: list[dict]) -> str:
         "Copy tool names and steps in the words used by the passages, one fact per sentence. "
         "Name every tool or step the passage lists. "
         "When a passage names the circumstances in one sentence, copy that sentence whole. "
-        "A passage marked table is a ruled table on that page. "
-        "A passage marked figure is the words read from a figure on that page. "
-        "Use a table or a figure the same way as the other passages. "
         "Do not use bullet points. "
         "If any passage states the tools or the steps, write that answer. "
         "Do not add a tool, a step, or a value that the passages do not state. "

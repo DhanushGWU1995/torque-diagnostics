@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Write BM25 and identifier tokens for one equipment folder.
 
-This reads passage, table, and figure Parquet. It does not open the PDFs
-and it does not build the embedding index. Set INDEX_FAMILY to one folder
-for a test. INDEX_FAMILY=all writes every folder, which is a full read of
-the shards. A folder that already has a finished token file is skipped.
-Set REBUILD=1 after new table or figure files exist, then rebuild BM25 and
-embeddings for that same folder. library is tokenized with three processes.
+This reads passage Parquet under chunks/asset_family=<family>/. It does
+not open the PDFs and it does not build the embedding index. Set
+INDEX_FAMILY to one folder for a test. INDEX_FAMILY=all writes every
+folder, which is a full read of the shards. A folder that already has a
+finished token file is skipped. library is tokenized with three processes.
 Every other folder stays on one process. The tokens and their order are
 the same either way.
 
@@ -50,7 +49,7 @@ def _import_layout() -> None:
 
 _import_layout()
 from asset_layout import family_rank
-from chunk_sources import present_family_globs, rebuild_requested, union_sql
+from chunk_sources import passage_sql_for, passages_present, rebuild_requested
 
 BUCKET = "dats-nlp"
 REGION = "us-east-1"
@@ -152,14 +151,13 @@ def write_family(connection, s3, family: str) -> tuple[int, int]:
     if finished(s3, key) and not rebuild_requested():
         print(f"skip {family}")
         return 0, 0
-    globs = present_family_globs(family)
-    if not globs:
+    if not passages_present(family):
         print(f"no shards {family}")
         return 0, 0
     cursor = connection.execute(
         f"""
         SELECT chunk_id, document_id, asset_family, page_number, text
-        FROM ({union_sql(globs)}) sources
+        FROM ({passage_sql_for(family)}) sources
         WHERE text IS NOT NULL AND trim(text) <> ''
         """
     )

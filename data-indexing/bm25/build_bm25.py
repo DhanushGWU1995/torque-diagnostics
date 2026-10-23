@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 """Build one BM25 word index per equipment folder.
 
-This reads the token Parquet written by build_tokens.py, including passage,
-table, and figure rows. It does not open the PDFs and it does not embed
-the rows. The question is tokenized with the same BM25 tokenizer used to
-build the file, so a fault code, a document id, and a hyphenated phrase
-such as flange-mounting stay whole. Set REBUILD=1 after the token file for
-that folder has been rebuilt.
+This reads the token Parquet written by build_tokens.py. It does not open
+the PDFs and it does not embed the rows. The question is tokenized with
+the same BM25 tokenizer used to build the file, so a fault code, a
+document id, and a hyphenated phrase such as flange-mounting stay whole.
 
 Set INDEX_FAMILY to one folder for a test. INDEX_FAMILY=all writes every
 folder. A folder that already has a finished index is skipped. library is
