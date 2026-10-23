@@ -1,2 +1,2 @@
-{"id": "flange-tools", "question": "What tools are needed to flange-mount an ACS880-11?", "family": "ACS880-11", "relevant": [{"document_id": "3AXD50000349838", "page_number": 17}]}
-{"id": "acs860-reset", "question": "Which faults can the ACS860 reset automatically?", "family": "ACS860", "relevant": [{"document_id": "3AXD50000034052", "page_number": 68}, {"document_id": "3ABD00069490", "page_number": 27}]}
+{"id": "flange-tools", "question": "What tools are needed to flange-mount an ACS880-11?", "relevant": [{"document_id": "3AXD50000349838", "page_number": 17}]}
+{"id": "acs860-reset", "question": "Which faults can the ACS860 reset automatically?", "relevant": [{"document_id": "3AXD50000034052", "page_number": 68}, {"document_id": "3ABD00069490", "page_number": 27}]}

@@ -89,9 +89,11 @@ flowchart TD
   G -->|Yes| I[Release the quoted lines with document and page]
 ```
 
+The question names the equipment, and the script reads that folder. `INDEX_FAMILY` is an optional override.
+
 ```bash
 QUESTION='What tools are needed to flange-mount an ACS880-11?' \\
-  INDEX_FAMILY=ACS880-11 uv run python reply/answer_question.py
+  uv run python reply/answer_question.py
 ```
 
 The evaluator scores a hand-checked question file, `reply/questions.jsonl`. Each line names the question and the document pages that support it. Precision, recall, F1, and MRR use the distinct pages in the top hybrid passages. `ANSWER=1` also runs the reply and records whether the confidence check copied a page sentence, accepted a paraphrase with DeBERTa, or withheld the answer. The indexes are not rebuilt.

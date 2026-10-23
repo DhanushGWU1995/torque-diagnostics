@@ -154,8 +154,7 @@ def evaluate(questions: list[dict], k: int, run_answer: bool) -> str:
     lines = [f"k={k}", "id\tprecision\trecall\tf1\tmrr\trank\trelevant\tconfidence"]
     retrieval_rows = []
     for item in questions:
-        family = str(item.get("family", "")).strip()
-        families = [family] if family else route_families(item["question"])
+        families = route_families(item["question"])
         hits = retrieve(item["question"], families, k)
         scores = retrieval_scores(hits, item.get("relevant", []), k)
         if item.get("relevant"):
