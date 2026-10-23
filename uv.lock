@@ -1715,6 +1715,8 @@ dependencies = [
     { name = "accelerate" },
     { name = "boto3" },
     { name = "duckdb" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pillow" },
     { name = "polars" },
     { name = "pyarrow" },
@@ -1722,6 +1724,8 @@ dependencies = [
     { name = "pytesseract" },
     { name = "rank-bm25" },
     { name = "sentence-transformers" },
+    { name = "torch" },
+    { name = "transformers" },
 ]
 
 [package.metadata]
@@ -1729,6 +1733,7 @@ requires-dist = [
     { name = "accelerate", specifier = ">=1.0" },
     { name = "boto3", specifier = ">=1.34" },
     { name = "duckdb", specifier = ">=1.1" },
+    { name = "numpy", specifier = ">=1.26" },
     { name = "pillow", specifier = ">=10" },
     { name = "polars", specifier = ">=1.0" },
     { name = "pyarrow", specifier = ">=15" },
@@ -1736,6 +1741,8 @@ requires-dist = [
     { name = "pytesseract", specifier = ">=0.3.10" },
     { name = "rank-bm25", specifier = ">=0.2.2" },
     { name = "sentence-transformers", specifier = ">=3.0" },
+    { name = "torch", specifier = ">=2.2" },
+    { name = "transformers", specifier = ">=4.44" },
 ]
 
 [[package]]
