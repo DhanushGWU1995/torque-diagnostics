@@ -13,9 +13,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-BUCKET = "dats-nlp"
+BUCKET = "g34305547-dats6450-s2026"
 REGION = "us-east-1"
-CHUNKS_ROOT = "dhanush.mathivanan@gwu.edu/torque-diagnostics/chunks"
+CHUNKS_ROOT = "torque-diagnostics/chunks"
 
 
 def rebuild_requested() -> bool:

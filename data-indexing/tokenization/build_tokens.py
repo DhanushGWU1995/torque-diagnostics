@@ -51,10 +51,10 @@ _import_layout()
 from asset_layout import family_rank
 from chunk_sources import passage_sql_for, passages_present, rebuild_requested
 
-BUCKET = "dats-nlp"
+BUCKET = "g34305547-dats6450-s2026"
 REGION = "us-east-1"
-CHUNKS_ROOT = "dhanush.mathivanan@gwu.edu/torque-diagnostics/chunks"
-INDEX_ROOT = "dhanush.mathivanan@gwu.edu/torque-diagnostics/index/tokens"
+CHUNKS_ROOT = "torque-diagnostics/chunks"
+INDEX_ROOT = "torque-diagnostics/index/tokens"
 STATUS_NAME = "token_status.txt"
 LARGE_FAMILIES = frozenset({"library"})
 LARGE_WORKERS = 3
@@ -98,7 +98,6 @@ def connect():
         CREATE OR REPLACE SECRET (
             TYPE s3,
             PROVIDER credential_chain,
-            CHAIN 'env',
             REGION '{REGION}'
         )
         """

@@ -75,10 +75,10 @@ def _import_layout() -> None:
 _import_layout()
 from asset_layout import family_rank
 
-BUCKET = "dats-nlp"
+BUCKET = "g34305547-dats6450-s2026"
 REGION = "us-east-1"
-RAW_ROOT = "dhanush.mathivanan@gwu.edu/torque-diagnostics/raw"
-CHUNKS_ROOT = "dhanush.mathivanan@gwu.edu/torque-diagnostics/chunks"
+RAW_ROOT = "torque-diagnostics/raw"
+CHUNKS_ROOT = "torque-diagnostics/chunks"
 WORKERS = 2
 # None processes every PDF that does not already have a Parquet shard.
 # A positive number is one safe batch: that many remaining PDFs are
