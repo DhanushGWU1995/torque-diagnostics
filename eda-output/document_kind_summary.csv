@@ -1,44 +1,44 @@
-document_kind,pdfs
-Advertisement,21
-Application note,1146
-Article,376
-Brochure,404
-Bulletin,5
-CAD outline drawing,1
-Catalogue,391
-Certificate,52
-Circuit diagram,1
-Course literature,3
-Data sheet,10491
-Declaration of conformity,45
-Drawing,19
-Environmental product declaration,6
-Guideline,15
-Information,2491
-Instruction,4434
-Leaflet,29
-List,3
-Manual,6754
-Material specification,1
-Operating instruction,43
-Parts list,1
-Policy,1
-Poster,24
-Presentation,44
-Press release,6
-Price list,18
-Product guide,19
-Product update,1
-Recycling instructions,1
-Reference case study,11
-Reference list,2
-Release note,1
-Report,33
-Roll-up,17
-Service instruction,97
-Technical description,885
-Technical publication,663
-Technical specification,28
-Test report,1
-Web conference material,6
-White paper,76
+document_kind,pdf_count,total_mb,total_gb
+Advertisement,21,636.44,0.6215234375
+Application note,1146,1607.55,1.569873046875
+Article,376,15358.62,14.99865234375
+Brochure,404,8516.72,8.317109375
+Bulletin,5,80.89999999999999,0.07900390624999999
+CAD outline drawing,1,10.96,0.010703125
+Catalogue,391,12000.84,11.7195703125
+Certificate,52,688.48,0.67234375
+Circuit diagram,1,10.63,0.010380859375
+Course literature,3,36.78,0.03591796875
+Data sheet,10491,6505.65,6.353173828125
+Declaration of conformity,45,491.42,0.47990234375
+Drawing,19,192.1,0.18759765625
+Environmental product declaration,6,80.88,0.078984375
+Guideline,15,199.33,0.194658203125
+Information,2491,1627.92,1.589765625
+Instruction,4434,9622.91,9.397373046875
+Leaflet,29,544.69,0.531923828125
+List,3,35.11,0.034287109375
+Manual,6754,34988.12,34.1680859375
+Material specification,1,20.47,0.019990234375
+Operating instruction,43,580.13,0.566533203125
+Parts list,1,15.27,0.014912109375
+Policy,1,21.08,0.0205859375
+Poster,24,815.11,0.796005859375
+Presentation,44,1071.67,1.046552734375
+Press release,6,239.08,0.2334765625
+Price list,18,1128.37,1.101923828125
+Product guide,19,640.28,0.6252734375
+Product update,1,31.32,0.0305859375
+Recycling instructions,1,11.07,0.010810546875
+Reference case study,11,178.17000000000002,0.17399414062500002
+Reference list,2,19.759999999999998,0.019296874999999998
+Release note,1,15.85,0.015478515625
+Report,33,721.56,0.7046484375
+Roll-up,17,687.51,0.671396484375
+Service instruction,97,408.15,0.398583984375
+Technical description,885,922.34,0.90072265625
+Technical publication,663,1353.53,1.321806640625
+Technical specification,28,390.08,0.3809375
+Test report,1,18.99,0.018544921875
+Web conference material,6,97.37,0.095087890625
+White paper,76,1660.04,1.6211328125

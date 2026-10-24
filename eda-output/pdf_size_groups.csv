@@ -1,5 +1,5 @@
-size_group,pdfs
+size_group,pdf_count
 Under 1 MB,18391
-1–10 MB,7706
-10–50 MB,2262
+1 to <10 MB,7706
+10 to <50 MB,2262
 50 MB or more,307
