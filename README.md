@@ -17,5 +17,4 @@ That is the only install step. It creates `.venv` and installs every library nam
 The write-ups live in `docs/`. This file stays at the repository root.
 
 - [docs/full-pipeline.md](docs/full-pipeline.md) is the run from a new EC2 through the PDF download, chunking, every index, the answer, and validation.
-- [docs/milestone-1-data-and-questions.docx](docs/milestone-1-data-and-questions.docx) is the project proposal.
-- [docs/eda-initial-results.docx](docs/eda-initial-results.docx) is the initial EDA and the updated questions.
+- [docs/milestone-1-data-and-questions.docx](docs/milestone-1-data-and-questions.docx) is the project proposal, with the exploratory charts and the questions.
