@@ -39,6 +39,7 @@ _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent / "bm25"))
 sys.path.insert(0, str(_HERE.parents[2]))
 
+import hf_cache  # noqa: E402
 from build_bm25 import BUCKET, REGION, connect, selected_families  # noqa: E402
 from chunk_sources import passage_sql_for, passages_present, rebuild_requested  # noqa: E402
 
@@ -75,13 +76,18 @@ def load_passages(connection, family: str) -> list[tuple]:
     ).fetchall()
 
 
-def load_encoder():
-    import torch
-    from sentence_transformers import SentenceTransformer
+_encoder = None
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"model={MODEL_NAME} device={device}", flush=True)
-    return SentenceTransformer(MODEL_NAME, device=device)
+
+def load_encoder():
+    """Return the one embedding model for this process."""
+    global _encoder
+    if _encoder is None:
+        import torch
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        _encoder = hf_cache.sentence_transformer(MODEL_NAME, device)
+    return _encoder
 
 
 def encode_texts(encoder, texts: list[str], query: bool) -> np.ndarray:

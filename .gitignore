@@ -27,3 +27,4 @@ image_status.txt
 image_remaining.txt
 image_failed.txt
 __pycache__/
+models/

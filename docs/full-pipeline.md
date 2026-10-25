@@ -70,7 +70,7 @@ The repository is private. Log in with a GitHub account that can read it. Run `u
 | `pillow` | Image handling used by the model libraries |
 | `pytesseract` | Present in the project file. This full run reads the PDF text layer and does not call it |
 
-On Linux, the locked PyTorch build includes the CUDA libraries. The model weights themselves (`bge`, Qwen, and DeBERTa) download on the first embedding run and the first answer, after this install.
+On Linux, the locked PyTorch build includes the CUDA libraries. Model weights are not part of that install. They are stored in `models/huggingface`. The first script that needs a model downloads it into that folder. Later scripts and later questions read the copy already there.
 
 Check the GPU:
 
@@ -192,7 +192,7 @@ The summary is written to `bm25_status.txt`. A finished index prints `skip`.
 s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/index/embeddings/asset_family=<family>.parquet
 ```
 
-`library` is last and is most of the passages, so this is the long GPU job. Run it alone. Do not start the answer while it is running.
+`library` is last and is most of the passages, so this is the long GPU job. Run it alone. Do not start the answer while it is running. `BAAI/bge-base-en-v1.5` is loaded once for the whole run. If `models/huggingface` already has the weights, they are not downloaded again.
 
 ```bash
 INDEX_FAMILY=all uv run python data-indexing/embeddings/build_embeddings.py
@@ -206,21 +206,20 @@ At this point every folder has a token file, a BM25 index, and an embedding inde
 
 `reply/answer_question.py` does not take a folder name. The words in the question choose the folder. A question that names no series reads `library`. Leave `INDEX_FAMILY` unset.
 
-The reply retrieves the top 15 passages from the BM25 index and the embedding index for that folder, scales the two scores to the same range, and adds them. `Qwen/Qwen2.5-7B-Instruct` writes the draft and does not name a document or a page. The program attaches the citation. `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli` is loaded on every reply. It judges a sentence only when that sentence is a partial paraphrase of a retrieved line. A sentence already on the page is quoted. A sentence the pages do not support is dropped. If nothing remains, the answer is withheld.
+The reply retrieves the top 15 passages from the BM25 index and the embedding index for that folder, scales the two scores to the same range, and adds them. `Qwen/Qwen2.5-7B-Instruct` writes the draft and does not name a document or a page. The program attaches the citation. The embedding model and Qwen are loaded once for the process and reused for every question. `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli` is loaded the first time a drafted sentence is only a partial paraphrase, and that loaded checker is reused. A sentence already on the page is quoted without loading DeBERTa. A sentence the pages do not support is dropped. If nothing remains, the answer is withheld.
 
 ```mermaid
 flowchart TD
   Q[Question] --> R[Hybrid search keeps 15 pages]
-  R --> W[Qwen writes the draft]
-  W --> L[Load DeBERTa]
-  L --> S{Each draft sentence}
+  R --> W[Qwen writes the draft, loaded once]
+  W --> S{Each draft sentence}
   S -->|Refusal of at most two sentences| A[Return the refusal]
   S -->|At least four new words, and one page sentence holds at least 60 percent of them| B[Quote that page sentence]
   S -->|Any other sentence| C[Split the sentence on commas and and]
   C --> P{Closest manual line}
   P -->|Exact line| D[Quote the line]
   P -->|At least 50 percent of the line's words are in the claim| D
-  P -->|At least 34 percent and under 50 percent| E[Ask DeBERTa whether the line entails the claim]
+  P -->|At least 34 percent and under 50 percent| E[Load DeBERTa once and ask whether the line entails the claim]
   E -->|Entailment| D
   E -->|Neutral or contradiction| F[Drop the claim]
   P -->|Under 34 percent| F
@@ -228,8 +227,6 @@ flowchart TD
   G -->|No| H[Withhold the answer]
   G -->|Yes| I[Release the quoted lines with document and page]
 ```
-
-The first reply downloads Qwen and DeBERTa.
 
 ```bash
 QUESTION='What tools are needed to flange-mount an ACS880-11?' \
@@ -243,7 +240,7 @@ QUESTION='Which faults can the ACS860 reset automatically?' \
 
 Any other technician question uses the same command. Change only `QUESTION`.
 
-The log prints `folders:`, then `writer=Qwen/Qwen2.5-7B-Instruct`, then `checker=MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli`, then the answer. Each kept sentence ends with the document id and page.
+The log prints `folders:`, then `writer=Qwen/Qwen2.5-7B-Instruct source=cache` when the weights are already in `models/huggingface`. `source=huggingface` means this process is downloading that model. `checker=` is printed only when a sentence needs DeBERTa. Each kept sentence ends with the document id and page. The first reply downloads Qwen. It downloads DeBERTa only if a sentence is a partial paraphrase.
 
 ## 12. Validate the cited pages
 
