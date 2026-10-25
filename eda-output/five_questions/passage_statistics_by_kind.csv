@@ -1,0 +1,44 @@
+document_kind,documents,passages,mean_passage_chars,mean_distinct_text_pages_per_document,median_distinct_text_pages_per_document
+data sheet,9571,32057,1444.2,3.17,2
+manual,6076,497466,1224.96,79.34,20.0
+application note,843,8819,1419.13,9.96,6
+technical description,808,34419,1635.42,39.09,6.0
+technical publication,638,10771,1726.88,14.66,6.0
+instruction,3880,32822,1274.51,7.51,2.0
+service instruction,81,700,1185.64,8,4
+recycling instructions,1,32,794.75,31,31
+drawing,18,321,1257.06,17.33,3.0
+unknown,2970,76159,1524.35,23.87,8.0
+information,2205,14825,1577.65,5.93,2
+catalogue,372,59834,1524.66,149.24,85.5
+brochure,348,10859,1254.04,29.78,20.0
+leaflet,28,455,1480.8,14.43,4.0
+technical specification,28,4352,786.46,154.43,149.0
+operating instruction,37,1526,1313.6,39.62,8
+circuit diagram,1,16,1609.12,13,13
+guideline,15,957,1165.7,57.73,30
+product guide,19,2895,1383.11,148.05,54
+certificate,51,159,1388.87,3.12,0
+declaration of conformity,45,155,620.35,3.42,1
+white paper,73,3898,1590.26,45.99,19
+environmental product declaration,5,144,732.31,28,24
+reference case study,10,124,1661.38,11.3,6.5
+roll-up,9,29,222.59,3.22,1
+poster,20,30,593.13,1.5,1.0
+product update,1,5,1090.8,5,5
+presentation,41,3593,395.51,87.59,77
+cad outline drawing,1,1,3122.0,1,1
+bulletin,5,80,1652.03,13.8,9
+policy,1,40,1967.58,38,38
+report,33,4388,1893.55,103.88,71
+material specification,1,44,1864.98,39,39
+reference list,2,28,1739.86,12,12.0
+article,375,21923,2107.18,44.17,28
+advertisement,16,800,2190.25,29.75,9.0
+press release,6,198,1922.41,25.67,3.0
+course literature,3,613,356.59,204.33,190
+test report,1,0,0,0,0
+price list,18,5145,1662.39,274.61,341.5
+web conference material,6,249,409.93,41.5,11.0
+release note,1,219,990.32,208,208
+parts list,1,32,1144.56,31,31

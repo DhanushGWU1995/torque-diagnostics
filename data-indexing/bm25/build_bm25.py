@@ -57,7 +57,7 @@ from chunk_sources import rebuild_requested
 
 BUCKET = "g34305547-dats6450-s2026"
 REGION = "us-east-1"
-TOKEN_ROOT = "orque-diagnostics/index/tokens"
+TOKEN_ROOT = "torque-diagnostics/index/tokens"
 BM25_ROOT = "torque-diagnostics/index/bm25"
 STATUS_NAME = "bm25_status.txt"
 _FAMILY_NAME = re.compile(r"[A-Za-z0-9_.+-]+")
