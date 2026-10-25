@@ -43,7 +43,7 @@ import hf_cache  # noqa: E402
 from build_bm25 import BUCKET, REGION, connect, selected_families  # noqa: E402
 from chunk_sources import passage_sql_for, passages_present, rebuild_requested  # noqa: E402
 
-EMBED_ROOT = "g34305547-dats6450-s2026/torque-diagnostics/index/embeddings"
+EMBED_ROOT = "dhanush.mathivanan@gwu.edu/torque-diagnostics/index/embeddings"
 MODEL_NAME = "BAAI/bge-base-en-v1.5"
 QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
 EMBED_DIM = 768

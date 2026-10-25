@@ -22,10 +22,9 @@ import os
 import sys
 from pathlib import Path
 
-BUCKET = "g34305547-dats6450-s2026"
+BUCKET = "dats-nlp"
 REGION = "us-east-1"
-RAW_ROOT = "torque-diagnostics/raw"
-CHUNKS_ROOT = "torque-diagnostics/chunks"
+CHUNKS_ROOT = "dhanush.mathivanan@gwu.edu/torque-diagnostics/chunks"
 REPORT_NAME = "coverage.txt"
 
 COLUMNS = (
@@ -84,7 +83,7 @@ def connect():
         CREATE OR REPLACE SECRET (
             TYPE s3,
             PROVIDER credential_chain,
-            
+            CHAIN 'env',
             REGION '{REGION}'
         )
         """
