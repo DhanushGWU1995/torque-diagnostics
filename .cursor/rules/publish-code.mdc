@@ -1,0 +1,12 @@
+---
+description: After code changes, commit to GitHub and update the EC2 project without waiting to be asked.
+alwaysApply: true
+---
+
+# Publish code changes
+
+After a code change in this project, commit it and put the same files on GitHub and on the EC2 instance. Do not wait for a separate request to commit, push, or copy.
+
+- Author commits as DhanushGWU1995 (dhanush.mathivanan@gwu.edu). Do not leave a Co-authored-by trailer. Do not update git config. Do not commit secrets, manuals, or model weights.
+- Push to the existing GitHub remote on the current branch.
+- The instance project is the flat tree at `/home/ubuntu/dl-venv/nlp_project` for user `ubuntu`. Copy each changed file to the path that tree actually uses, including a root copy when the same script also lives at the project root. Use the SSH key `AWS_NLP_Config_keys.pem` with mode 600. The public IP changes after stop and start; use the latest address the user gave, and do not write access keys into the repo or onto the instance.

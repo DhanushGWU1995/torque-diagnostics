@@ -67,8 +67,6 @@ The repository is private. Log in with a GitHub account that can read it. Run `u
 | `torch` | GPU execution for the embedding model, Qwen, and DeBERTa |
 | `transformers` | `Qwen/Qwen2.5-7B-Instruct` and `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli` |
 | `accelerate` | Loading the Qwen weights onto the GPU |
-| `pillow` | Image handling used by the model libraries |
-| `pytesseract` | Present in the project file. This full run reads the PDF text layer and does not call it |
 
 On Linux, the locked PyTorch build includes the CUDA libraries. Model weights are not part of that install. They are stored in `models/huggingface`. The first script that needs a model downloads it into that folder. Later scripts and later questions read the copy already there.
 
@@ -134,7 +132,7 @@ When the run succeeds, each raw folder receives a `_COMPLETE` marker listing the
 s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/chunks/asset_family=<family>/<document_id>.parquet
 ```
 
-Each passage stays on one page. A page longer than 3,500 characters is split, and the pieces keep that page number. The text is the PDF text layer. Drawing pages are not sent to Tesseract. Files of 200 MB or more run one at a time. Smaller files run two at a time. `library` is queued after the named folders.
+Each passage stays on one page. A page longer than 3,500 characters is split, and the pieces keep that page number. The text is the PDF text layer. Files of 200 MB or more run one at a time. Smaller files run two at a time. `library` is queued after the named folders.
 
 Leave `MAX_FILES` unset. That processes every PDF that does not already have a finished Parquet footer.
 
