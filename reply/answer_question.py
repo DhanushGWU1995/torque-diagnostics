@@ -6,6 +6,10 @@ reply from those rows only. A statement is kept when one retrieved line
 states it, and that page is cited. DeBERTa v3 checks a statement that is not
 copied verbatim. A procedure that no retrieved row states is withheld.
 
+Each model is downloaded once into models/huggingface. The embedding model
+and Qwen stay loaded for the rest of the process. DeBERTa is loaded on the
+first partial paraphrase and then reused.
+
     QUESTION='What tools are needed to flange-mount an ACS880-11?' \\
         uv run python reply/answer_question.py
 
@@ -28,6 +32,7 @@ sys.path.insert(0, str(ROOT / "data-indexing" / "bm25"))
 sys.path.insert(0, str(ROOT / "data-indexing" / "embeddings"))
 sys.path.insert(0, str(ROOT / "data-indexing" / "tokenization"))
 
+import hf_cache
 from build_bm25 import connect, search
 from build_embeddings import encode_texts, load_encoder, search_vectors
 from chunk_sources import passage_sql_for
@@ -285,9 +290,7 @@ def gate(answer: str, passages: list[dict], entails, question: str = "") -> str:
 
 
 def retrieve(question: str, families: list[str], k: int) -> list[dict]:
-    encoder = load_encoder()
-    query_vector = encode_texts(encoder, [question], query=True)[0]
-    del encoder
+    query_vector = encode_texts(load_encoder(), [question], query=True)[0]
     found: list[dict] = []
     for family in families:
         bm25_hits = search(load_payload(family), question, max(k, 10**9))
@@ -331,10 +334,34 @@ def load_texts(hits: list[dict]) -> list[dict]:
     return passages
 
 
-def draft(question: str, passages: list[dict]) -> str:
+_writer: tuple | None = None
+_entails = None
+
+
+def load_writer():
+    """Return the one Qwen tokenizer and model for this process."""
+    global _writer
+    if _writer is not None:
+        return _writer
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
+    dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+    device_map = "auto" if torch.cuda.is_available() else "cpu"
+    tokenizer, tokenizer_source = hf_cache.from_pretrained(AutoTokenizer, WRITER_MODEL)
+    model, model_source = hf_cache.from_pretrained(
+        AutoModelForCausalLM,
+        WRITER_MODEL,
+        dtype=dtype,
+        device_map=device_map,
+    )
+    source = "huggingface" if "huggingface" in {tokenizer_source, model_source} else "cache"
+    print(f"writer={WRITER_MODEL} source={source}", flush=True)
+    _writer = (tokenizer, model)
+    return _writer
+
+
+def draft(question: str, passages: list[dict]) -> str:
     blocks = []
     for row in passages:
         heading = f"document {row['document_id']}, page {row['page_number']}"
@@ -352,34 +379,31 @@ def draft(question: str, passages: list[dict]) -> str:
         f"If none of the passages state the procedure, reply only: {REFUSAL.capitalize()}."
     )
     user = "Passages:\n\n" + "\n\n".join(blocks) + f"\n\nQuestion: {question}"
-    tokenizer = AutoTokenizer.from_pretrained(WRITER_MODEL)
-    model = AutoModelForCausalLM.from_pretrained(
-        WRITER_MODEL,
-        dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-        device_map="auto" if torch.cuda.is_available() else "cpu",
-    )
+    tokenizer, model = load_writer()
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
     prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
     output = model.generate(**inputs, max_new_tokens=400, do_sample=False)
     text = tokenizer.decode(output[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True)
-    del model
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
     return text.strip()
 
 
-def entailment_checker():
+def _load_entails():
     import torch
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained(ENTAIL_MODEL)
-    model = AutoModelForSequenceClassification.from_pretrained(ENTAIL_MODEL)
+    tokenizer, tokenizer_source = hf_cache.from_pretrained(AutoTokenizer, ENTAIL_MODEL)
+    model, model_source = hf_cache.from_pretrained(
+        AutoModelForSequenceClassification,
+        ENTAIL_MODEL,
+    )
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)
     model.eval()
     labels = {int(index): name.lower() for index, name in model.config.id2label.items()}
     entail_index = next(index for index, name in labels.items() if name == "entailment")
+    source = "huggingface" if "huggingface" in {tokenizer_source, model_source} else "cache"
+    print(f"checker={ENTAIL_MODEL} source={source}", flush=True)
 
     def entails(premise: str, hypothesis: str) -> bool:
         encoded = tokenizer(
@@ -393,6 +417,18 @@ def entailment_checker():
         with torch.no_grad():
             logits = model(**encoded).logits[0]
         return int(torch.argmax(logits).item()) == entail_index
+
+    return entails
+
+
+def entailment_checker():
+    """Return the checker. DeBERTa loads on the first call, then stays loaded."""
+
+    def entails(premise: str, hypothesis: str) -> bool:
+        global _entails
+        if _entails is None:
+            _entails = _load_entails()
+        return _entails(premise, hypothesis)
 
     return entails
 
@@ -411,9 +447,7 @@ def main() -> int:
     if not passages:
         print(WITHHOLD)
         return 0
-    print(f"writer={WRITER_MODEL}", flush=True)
     answer = draft(question, passages)
-    print(f"checker={ENTAIL_MODEL}", flush=True)
     released = gate(answer, passages, entailment_checker(), question)
     print(released)
     return 0

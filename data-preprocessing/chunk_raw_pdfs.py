@@ -37,8 +37,7 @@ the title: an ACS880 frame, a firmware manual, or another series such as
 COM600. The shard uses the same name, so a question for one series reads
 that series only. library is the leftover folder and is queued last.
 
-Each page keeps its text layer. Drawing pages are not sent to Tesseract.
-A passage never crosses a page. A PDF of 200 MB or more is chunked alone.
+Each page keeps its text layer. A passage never crosses a page. A PDF of 200 MB or more is chunked alone.
 Smaller PDFs run two at a time, in separate processes.
 A shard is skipped only when the object in S3 is a finished Parquet
 file. An incomplete object is written again.

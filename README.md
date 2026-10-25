@@ -10,7 +10,7 @@ Technician assistant for ABB drive manuals. Answers from indexed pages and withh
 uv sync
 ```
 
-That is the only install step. It creates `.venv` and installs every library named in `pyproject.toml`: boto3, DuckDB, Polars, PyArrow, PyMuPDF, NumPy, rank-bm25, sentence-transformers, PyTorch, Transformers, Accelerate, Pillow, and pytesseract.
+That is the only install step. It creates `.venv` and installs every library named in `pyproject.toml`: boto3, DuckDB, Polars, PyArrow, PyMuPDF, NumPy, rank-bm25, sentence-transformers, PyTorch, Transformers, and Accelerate.
 
 ## Documentation
 
