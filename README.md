@@ -1,6 +1,6 @@
 # torque-diagnostics
 
-Technician assistant for ABB drive manuals. Answers only from indexed English manual pages, cites `document_id` and `page_number`, and withholds a procedure the pages do not support.
+Technician assistant for ABB drive manuals. Answers only from indexed English manual pages, cites `document_id` and `page_number`, and withholds off-topic or unsupported asks with a **domain-restricted refusal** (ABB drive / motor / related equipment manuals indexed for Torque Diagnostics).
 
 **Text RAG path (current):** PDF download → text passages → coverage / EDA → tokens → BM25 → embeddings → hybrid search → Qwen reply → DeBERTa confidence gate → evaluation + Streamlit chat UI.
 
@@ -61,9 +61,11 @@ Hand-checked samples live in `reply/questions.jsonl` (four lines today):
 | `flange-tools` | Copied-sentence path; gold `3AXD50000349838` p.17 |
 | `acs860-reset` | ACS860 autoreset; gold p.68 / p.27 |
 | `acs860-ov-controller-protect` | DeBERTa / weak-confidence path; gold p.62 |
-| `unrelated-stock` | Expected withhold |
+| `unrelated-stock` | Off-topic; expected domain-restricted withhold |
 
 Scores: precision, recall, F1, MRR on **cited** pages. Confidence: `copied-sentence`, `deberta`, or `withheld` (plus `deberta_calls`).
+
+**Withheld answers** come from the confidence gate in `reply/answer_question.py` (not from Streamlit alone). The released text states that domain knowledge is restricted to the indexed ABB manuals and that the question is outside that scope or unsupported by retrieved pages. Qwen is prompted to refuse off-subject asks; the gate normalizes every refusal to that message.
 
 ## Chat UI (Streamlit on GPU EC2)
 
@@ -109,6 +111,7 @@ Then open [http://127.0.0.1:8501](http://127.0.0.1:8501). Keep Streamlit on `127
 - Sample questions from `reply/questions.jsonl`, or your own question
 - Live stage progress on each **Answer** (model reuse vs disk→GPU, retrieve, Qwen write, DeBERTa, gate, metrics)
 - Answer with citations; confidence; DeBERTa triggered / calls / keeps; withheld yes/no
+- `withheld` shows the domain-restricted refusal (off-topic or unsupported)
 - Top 10 hybrid retrieval passages
 - Citation metrics for hand-checked samples (precision, recall, F1, MRR, citation accuracy = precision)
 - **Score all sample questions** — confidence matrix across the sample set

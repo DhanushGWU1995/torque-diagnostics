@@ -204,7 +204,7 @@ At this point every folder has a token file, a BM25 index, and an embedding inde
 
 `reply/answer_question.py` does not take a folder name. The words in the question choose the folder. A question that names no series reads `library`. Leave `INDEX_FAMILY` unset.
 
-The reply retrieves the top 15 passages from the BM25 index and the embedding index for that folder, scales the two scores to the same range, and adds them. `Qwen/Qwen2.5-7B-Instruct` writes the draft and does not name a document or a page. The program attaches the citation. The embedding model and Qwen are loaded once for the process and reused for every question. `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli` is loaded the first time a drafted sentence is only a partial paraphrase, and that loaded checker is reused. A sentence already on the page is quoted without loading DeBERTa. A sentence the pages do not support is dropped. If nothing remains, the answer is withheld.
+The reply retrieves the top 15 passages from the BM25 index and the embedding index for that folder, scales the two scores to the same range, and adds them. `Qwen/Qwen2.5-7B-Instruct` writes the draft and does not name a document or a page. The program attaches the citation. The embedding model and Qwen are loaded once for the process and reused for every question. `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli` is loaded the first time a drafted sentence is only a partial paraphrase, and that loaded checker is reused. A sentence already on the page is quoted without loading DeBERTa. A sentence the pages do not support is dropped. If nothing remains — or the question is outside ABB drive / motor / related equipment manuals — the confidence gate releases a **domain-restricted withhold**: knowledge is limited to the indexed English ABB manuals, and this question is out of scope or unsupported. Streamlit and the CLI both display that gate message; the UI does not invent a separate policy.
 
 ```mermaid
 flowchart TD
@@ -222,7 +222,7 @@ flowchart TD
   E -->|Neutral or contradiction| F[Drop the claim]
   P -->|Under 34 percent| F
   F --> G{Any claim kept?}
-  G -->|No| H[Withhold the answer]
+  G -->|No| H[Domain-restricted withhold]
   G -->|Yes| I[Release the quoted lines with document and page]
 ```
 
@@ -255,13 +255,13 @@ The file starts with four questions:
 - Flange-mount tools for an ACS880-11, checked page `3AXD50000349838` page 17.
 - ACS860 automatic reset, checked pages `3AXD50000034052` page 68 and `3ABD00069490` page 27.
 - ACS860 overvoltage controller, checked page `3AXD50000034052` page 62 (DeBERTa path).
-- Unrelated ABB share-price question, expected withhold.
+- Unrelated ABB share-price question, expected domain-restricted withhold.
 
 Add a new hand-checked question as one more JSON line in `reply/questions.jsonl`, then run the same command. The indexes are not rebuilt.
 
 ## 13. Chat UI on the same EC2
 
-The Streamlit app in `ui/chat_app.py` uses the same retrieve → Qwen → DeBERTa path. It shows the answer, confidence label, DeBERTa call/keep counts, top 10 passages, and citation metrics for the sample questions. Run it on the GPU instance that already has the indexes (not on GitHub Pages or a free Hugging Face Space: those cannot hold Qwen, the private ABB indexes, or the course S3 credentials).
+The Streamlit app in `ui/chat_app.py` uses the same retrieve → Qwen → DeBERTa gate path. It shows the answer, confidence label (including domain-restricted `withheld`), DeBERTa call/keep counts, top 10 passages, and citation metrics for the sample questions. Run it on the GPU instance that already has the indexes (not on GitHub Pages or a free Hugging Face Space: those cannot hold Qwen, the private ABB indexes, or the course S3 credentials).
 
 Start (foreground):
 

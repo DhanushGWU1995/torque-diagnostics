@@ -4,7 +4,8 @@
 The hybrid search supplies the passage text. Qwen2.5-7B-Instruct writes the
 reply from those rows only. A statement is kept when one retrieved line
 states it, and that page is cited. DeBERTa v3 checks a statement that is not
-copied verbatim. A procedure that no retrieved row states is withheld.
+copied verbatim. Off-topic questions and procedures no retrieved row states
+are withheld with a domain-restricted refusal (indexed ABB manuals only).
 
 Each model is downloaded once into models/huggingface. The embedding model
 and Qwen stay loaded for the rest of the process. DeBERTa is loaded on the
