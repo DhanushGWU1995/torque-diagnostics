@@ -38,7 +38,7 @@ On EC2 you can keep the same exports in `~/.aws_session.env` and `set -a; . ~/.a
 
 ## Architecture presentation
 
-[docs/architecture-deck/Torque-Diagnostics-Architecture.pptx](docs/architecture-deck/Torque-Diagnostics-Architecture.pptx) — 14-slide system architecture deck (ingest → hybrid retrieval → gated generation → evaluation → UI).
+[docs/architecture-deck/Torque-Diagnostics-Architecture.pptx](docs/architecture-deck/Torque-Diagnostics-Architecture.pptx) — 15-slide system architecture deck (includes full end-to-end pipeline diagram) (ingest → hybrid retrieval → gated generation → evaluation → UI).
 
 ## Documentation
 
