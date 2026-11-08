@@ -307,7 +307,7 @@ def load_texts(hits: list[dict]) -> list[dict]:
     if not hits:
         return []
     connection = connect() if not os.environ.get("CHUNK_PARQUET", "").strip() else __import__("duckdb").connect()
-    passages = []
+    by_id: dict[str, dict] = {}
     by_family: dict[str, list[dict]] = {}
     for hit in hits:
         by_family.setdefault(hit["asset_family"], []).append(hit)
@@ -323,15 +323,14 @@ def load_texts(hits: list[dict]) -> list[dict]:
         ).fetchall()
         for chunk_id, document_id, page_number, text in rows:
             if str(chunk_id) in wanted and str(text or "").strip():
-                passages.append(
-                    {
-                        "chunk_id": str(chunk_id),
-                        "document_id": str(document_id),
-                        "page_number": int(page_number),
-                        "text": str(text),
-                    }
-                )
-    return passages
+                by_id[str(chunk_id)] = {
+                    "chunk_id": str(chunk_id),
+                    "document_id": str(document_id),
+                    "page_number": int(page_number),
+                    "text": str(text),
+                }
+    # Keep hybrid-rank order so the writer prompt is stable across runs.
+    return [by_id[str(hit["chunk_id"])] for hit in hits if str(hit["chunk_id"]) in by_id]
 
 
 _writer: tuple | None = None
