@@ -42,14 +42,27 @@ from query_hybrid import fuse, load_embeddings
 
 WRITER_MODEL = "Qwen/Qwen2.5-7B-Instruct"
 ENTAIL_MODEL = "MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli"
-REFUSAL = "the retrieved pages do not state this procedure"
-WITHHOLD = "The retrieved pages do not support this procedure."
+DOMAIN_SCOPE = (
+    "ABB drive, motor, and related equipment manuals indexed for Torque Diagnostics"
+)
+# Short line Qwen may emit; the gate normalizes every refusal to WITHHOLD.
+REFUSAL = "sorry — my domain knowledge is restricted to the indexed abb manuals"
+WITHHOLD = (
+    f"Sorry — my domain knowledge is restricted to {DOMAIN_SCOPE}. "
+    "I only answer from those indexed English manuals with document and page "
+    "citations. This question is outside that scope, or the retrieved pages do "
+    "not support an answer."
+)
 _SENTENCE = re.compile(r"(?<=[.!?])\s+")
 _CITE = re.compile(r"document\s+([A-Za-z0-9_.+-]+)\s*,\s*page\s+(\d+)", re.IGNORECASE)
 _FILLERS = frozenset(
     "including include using also such needed need needs following this that with from your have when where into onto what which".split()
 )
 _OPENING = re.compile(r"you need the following tools", re.IGNORECASE)
+_DOMAIN_REFUSAL = re.compile(
+    r"domain knowledge is restricted|retrieved pages do not (?:support|state)",
+    re.IGNORECASE,
+)
 
 
 def content_sentences(answer: str) -> list[str]:
@@ -75,8 +88,16 @@ def claim_text(sentence: str) -> str:
 
 
 def is_refusal(answer: str) -> bool:
-    lowered = answer.lower()
-    return REFUSAL in lowered and len(content_sentences(answer)) <= 2
+    """True when the writer (or gate) declined outside-scope / unsupported asks."""
+    text = answer.strip()
+    if not text:
+        return False
+    if text == WITHHOLD:
+        return True
+    lowered = text.lower()
+    if len(content_sentences(text)) > 3:
+        return False
+    return REFUSAL in lowered or bool(_DOMAIN_REFUSAL.search(lowered))
 
 
 def content_words(text: str) -> set[str]:
@@ -204,9 +225,13 @@ def cite_label(rows: list[dict]) -> str:
 
 
 def gate(answer: str, passages: list[dict], entails, question: str = "") -> str:
-    """Keep each line a retrieved page states, and cite that page."""
+    """Keep each line a retrieved page states, and cite that page.
+
+    Off-topic or unsupported asks exit here as WITHHOLD (domain-restricted
+    refusal). Streamlit only displays that string; it does not invent policy.
+    """
     if is_refusal(answer):
-        return answer.strip()
+        return WITHHOLD
     question_words = content_words(question)
     kept: list[tuple[str, list[dict]]] = []
     seen_wording: set[str] = set()
@@ -375,7 +400,9 @@ def draft(question: str, passages: list[dict]) -> str:
         "If any passage states the tools or the steps, write that answer. "
         "Do not add a tool, a step, or a value that the passages do not state. "
         "Do not name a document id or a page number. "
-        f"If none of the passages state the procedure, reply only: {REFUSAL.capitalize()}."
+        "Your knowledge is limited to ABB drive, motor, and related equipment manuals. "
+        "If the question is outside that subject, or none of the passages state the "
+        f"procedure, reply only: {REFUSAL}."
     )
     user = "Passages:\n\n" + "\n\n".join(blocks) + f"\n\nQuestion: {question}"
     tokenizer, model = load_writer()

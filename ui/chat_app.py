@@ -92,6 +92,7 @@ with right:
         """
 - **Answer** with document id and page citations  
 - **Confidence**: `copied-sentence`, `deberta`, or `withheld`  
+- **`withheld`**: domain-restricted refusal from the confidence gate (off-topic or unsupported)  
 - **DeBERTa**: whether the gate called it, call count, keep count  
 - **Top 10** hybrid retrieval passages  
 - **Citation metrics** when the question is one of the hand-checked samples  

@@ -89,7 +89,7 @@ def prediction_scores(
 
 
 def confidence_label(released: str, deberta_keeps: int) -> str:
-    if WITHHOLD in released or is_refusal(released):
+    if is_refusal(released) or released.strip() == WITHHOLD:
         return "withheld"
     if deberta_keeps:
         return "deberta"
