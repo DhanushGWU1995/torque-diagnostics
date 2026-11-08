@@ -250,12 +250,33 @@ ANSWER=1 uv run python reply/evaluate_answers.py
 
 A cited page is correct when its document id and page number are in that question's `relevant` list. Precision is the share of cited pages that are correct. Recall is the share of correct pages the answer cites. F1 is their harmonic mean. MRR is 1 divided by the position of the first correct citation. The confidence value on the same row is `copied-sentence`, `deberta`, or `withheld`, followed by `deberta_calls`. The `macro` row is the average across the questions in the file.
 
-The file starts with two questions:
+The file starts with four questions:
 
 - Flange-mount tools for an ACS880-11, checked page `3AXD50000349838` page 17.
 - ACS860 automatic reset, checked pages `3AXD50000034052` page 68 and `3ABD00069490` page 27.
+- ACS860 overvoltage controller, checked page `3AXD50000034052` page 62 (DeBERTa path).
+- Unrelated ABB share-price question, expected withhold.
 
 Add a new hand-checked question as one more JSON line in `reply/questions.jsonl`, then run the same command. The indexes are not rebuilt.
+
+## 13. Chat UI on the same EC2
+
+The Streamlit app in `ui/chat_app.py` uses the same retrieve → Qwen → DeBERTa path. It shows the answer, confidence label, DeBERTa call/keep counts, top 10 passages, and citation metrics for the sample questions. Run it on the GPU instance that already has the indexes (not on GitHub Pages or a free Hugging Face Space: those cannot hold Qwen, the private ABB indexes, or the course S3 credentials).
+
+```bash
+cd ~/dl-venv/nlp_project   # or the clone root after uv sync
+source ~/dl-venv/bin/activate   # or: uv sync && source .venv/bin/activate
+streamlit run ui/chat_app.py --server.address 127.0.0.1 --server.port 8501
+```
+
+From your laptop on the GWU VPN, forward the port and open the UI locally:
+
+```bash
+ssh -i /Users/dhanushmathivanan/dhanush_gwu/aws_config_keys/AWS_NLP_Config_keys.pem \
+  -L 8501:127.0.0.1:8501 ubuntu@THE_PUBLIC_DNS
+```
+
+Then open `http://127.0.0.1:8501`. Keep Streamlit bound to localhost so the course security group does not need a new public port.
 
 ## Rules for the whole run
 

@@ -16,5 +16,9 @@ That is the only install step. It creates `.venv` and installs every library nam
 
 The write-ups live in `docs/`. This file stays at the repository root.
 
-- [docs/full-pipeline.md](docs/full-pipeline.md) is the run from a new EC2 through the PDF download, chunking, every index, the answer, and validation.
+- [docs/full-pipeline.md](docs/full-pipeline.md) is the run from a new EC2 through the PDF download, chunking, every index, the answer, validation, and the Streamlit chat UI.
 - [docs/milestone-1-data-and-questions.docx](docs/milestone-1-data-and-questions.docx) is the project proposal, with the exploratory charts and the questions.
+
+## Chat UI
+
+`ui/chat_app.py` is the technician chat front end. Run it on the same GPU EC2 that already has the indexes (see step 13 in `docs/full-pipeline.md`). Use an SSH tunnel to `http://127.0.0.1:8501`. Do not put the ABB indexes or course AWS keys on a public Hugging Face Space or GitHub Pages host.

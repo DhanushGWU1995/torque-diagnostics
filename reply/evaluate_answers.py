@@ -118,11 +118,14 @@ def mean(values: list[float]) -> float:
     return sum(values) / len(values) if values else 0.0
 
 
-def answer_one(question: str, hits: list[dict]) -> tuple[str, str, int]:
-    """Run the writer and the gate. Returns the released text, the check, and DeBERTa calls."""
+def answer_one(question: str, hits: list[dict]) -> tuple[str, str, int, int]:
+    """Run the writer and the gate.
+
+    Returns released text, confidence label, DeBERTa call count, and DeBERTa keep count.
+    """
     passages = load_texts(hits)
     if not passages:
-        return WITHHOLD, "withheld", 0
+        return WITHHOLD, "withheld", 0, 0
     calls = {"count": 0, "keeps": 0}
     entails = entailment_checker()
 
@@ -134,7 +137,7 @@ def answer_one(question: str, hits: list[dict]) -> tuple[str, str, int]:
         return kept
 
     released = gate(draft(question, passages), passages, counting_entails, question)
-    return released, confidence_label(released, calls["keeps"]), calls["count"]
+    return released, confidence_label(released, calls["keeps"]), calls["count"], calls["keeps"]
 
 
 def cited_pages(released: str) -> list[tuple[str, int]]:
@@ -167,7 +170,7 @@ def evaluate(questions: list[dict], k: int) -> str:
     for item in questions:
         families = route_families(item["question"])
         hits = retrieve(item["question"], families, k)
-        released, check, calls = answer_one(item["question"], hits)
+        released, check, calls, _keeps = answer_one(item["question"], hits)
         withheld = check == "withheld"
         scores = prediction_scores(
             cited_pages(released),
