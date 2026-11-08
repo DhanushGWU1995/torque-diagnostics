@@ -25,7 +25,13 @@ sys.path.insert(0, str(ROOT / "reply"))
 
 import streamlit as st
 
-from chat_service import confidence_matrix, run_sample, run_turn, sample_questions
+from chat_service import (  # noqa: E402
+    confidence_matrix,
+    run_sample,
+    run_turn,
+    sample_questions,
+    warm_models,
+)
 
 st.set_page_config(page_title="Torque Diagnostics", layout="wide")
 st.title("Torque Diagnostics")
@@ -39,7 +45,21 @@ def _samples() -> list[dict]:
     return sample_questions()
 
 
+@st.cache_resource(show_spinner="Loading embedding + Qwen into GPU (once per server)…")
+def _models() -> dict[str, str]:
+    """Pin models in Streamlit's process cache so Answer clicks do not reload weights."""
+    return warm_models()
+
+
 samples = _samples()
+model_status = _models()
+st.caption(
+    f"Models in memory: encoder={model_status['encoder']}, "
+    f"writer={model_status['writer']}, deberta={model_status['deberta']} "
+    "(DeBERTa loads once on the first partial paraphrase, then stays loaded). "
+    "Each Answer click shows live stage progress (reuse vs load-from-disk)."
+)
+
 labels = {
     item["id"]: (
         f"{item['id']}: {item['question']}"
@@ -124,12 +144,32 @@ def _render_result(result: dict) -> None:
             st.write(row["snippet"] or row["text"] or "(no text loaded)")
 
 
+def _run_with_progress(label: str, runner) -> dict:
+    lines: list[str] = []
+    with st.status(label, expanded=True) as status:
+        log = st.empty()
+
+        def on_progress(stage: str, detail: str) -> None:
+            lines.append(f"- **{stage}**: {detail}")
+            log.markdown("\n".join(lines))
+            status.update(label=f"{stage}: {detail}", state="running")
+
+        result = runner(on_progress=on_progress)
+        status.update(label="Done", state="complete")
+    return result
+
+
 if run_clicked and question.strip():
-    with st.spinner("Retrieving, writing, and checking…"):
-        if selected is not None and question.strip() == selected["question"].strip():
-            result = run_sample(selected)
-        else:
-            result = run_turn(question)
+    if selected is not None and question.strip() == selected["question"].strip():
+        result = _run_with_progress(
+            "Answering sample question…",
+            lambda on_progress: run_sample(selected, on_progress=on_progress),
+        )
+    else:
+        result = _run_with_progress(
+            "Answering question…",
+            lambda on_progress: run_turn(question, on_progress=on_progress),
+        )
     st.session_state.history.insert(0, result)
     _render_result(result)
 elif st.session_state.history and not run_all:
@@ -139,8 +179,13 @@ if run_all:
     batch = []
     progress = st.progress(0.0, text="Scoring samples…")
     for index, item in enumerate(samples):
-        progress.progress((index) / max(len(samples), 1), text=f"Scoring {item['id']}…")
-        batch.append(run_sample(item))
+        progress.progress(index / max(len(samples), 1), text=f"Scoring {item['id']}…")
+        batch.append(
+            _run_with_progress(
+                f"Sample {item['id']}…",
+                lambda on_progress, item=item: run_sample(item, on_progress=on_progress),
+            )
+        )
     progress.progress(1.0, text="Done")
     st.session_state.batch = batch
 

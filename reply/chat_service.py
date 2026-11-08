@@ -7,17 +7,31 @@ Used by the Streamlit UI. Keeps the same path as reply/evaluate_answers.py.
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "reply"))
+sys.path.insert(0, str(ROOT / "data-indexing" / "embeddings"))
+sys.path.insert(0, str(ROOT / "data-indexing" / "tokenization"))
 
-from answer_question import load_texts, retrieve  # noqa: E402
+import answer_question as aq  # noqa: E402
+import build_embeddings as be  # noqa: E402
+from answer_question import (  # noqa: E402
+    draft,
+    entailment_checker,
+    gate,
+    load_texts,
+    load_writer,
+    retrieve,
+)
+from build_embeddings import load_encoder  # noqa: E402
 from evaluate_answers import (  # noqa: E402
     DEFAULT_QUESTIONS,
-    answer_one,
+    WITHHOLD,
     cited_pages,
+    confidence_label,
     load_questions,
     prediction_scores,
 )
@@ -25,6 +39,53 @@ from manual_tokens import route_families  # noqa: E402
 
 SHOW_PASSAGES = 10
 RETRIEVE_K = 15
+
+ProgressFn = Callable[[str, str], None]
+
+
+def _note(on_progress: ProgressFn | None, stage: str, detail: str) -> None:
+    if on_progress is not None:
+        on_progress(stage, detail)
+
+
+def warm_models(on_progress: ProgressFn | None = None) -> dict[str, str]:
+    """Load BGE and Qwen into this process once. DeBERTa loads on first partial paraphrase."""
+    if be._encoder is None:
+        _note(
+            on_progress,
+            "model load",
+            "Loading BGE (BAAI/bge-base-en-v1.5) from disk cache → GPU…",
+        )
+    else:
+        _note(on_progress, "model load", "BGE already in GPU — reusing")
+    load_encoder()
+    _note(on_progress, "model load", "BGE ready")
+
+    if aq._writer is None:
+        _note(
+            on_progress,
+            "model load",
+            "Loading Qwen2.5-7B-Instruct from disk cache → GPU (slow first time)…",
+        )
+    else:
+        _note(on_progress, "model load", "Qwen already in GPU — reusing")
+    load_writer()
+    _note(on_progress, "model load", "Qwen ready")
+
+    entailment_checker()
+    if aq._entails is None:
+        _note(
+            on_progress,
+            "model load",
+            "DeBERTa not loaded yet — will load from disk on first partial paraphrase",
+        )
+    else:
+        _note(on_progress, "model load", "DeBERTa already in GPU — reusing")
+    return {
+        "encoder": "ready",
+        "writer": "ready",
+        "deberta": "ready" if aq._entails is not None else "lazy",
+    }
 
 
 def sample_questions(path: Path | None = None) -> list[dict]:
@@ -59,23 +120,87 @@ def run_turn(
     expect_withhold: bool = False,
     retrieve_k: int = RETRIEVE_K,
     show_passages: int = SHOW_PASSAGES,
+    on_progress: ProgressFn | None = None,
 ) -> dict:
     """Answer one technician question and return UI fields."""
     question = question.strip()
     if not question:
         raise ValueError("question is empty")
 
+    warm_models(on_progress)
+
+    _note(on_progress, "route", "Choosing equipment folder(s) from the question…")
     families = route_families(question)
+    _note(on_progress, "route", f"Folders: {', '.join(families)}")
+
+    _note(
+        on_progress,
+        "retrieve",
+        f"Hybrid BM25 + embedding search (top {retrieve_k})…",
+    )
     hits = retrieve(question, families, retrieve_k)
+    _note(on_progress, "retrieve", f"Got {len(hits)} ranked hits")
+
+    _note(on_progress, "passages", "Loading passage text for ranked hits…")
     passages = load_texts(hits)
-    released, confidence, deberta_calls, deberta_keeps = answer_one(question, hits)
+    _note(on_progress, "passages", f"Loaded text for {len(passages)} passages")
+
+    if not passages:
+        released, confidence, deberta_calls, deberta_keeps = WITHHOLD, "withheld", 0, 0
+        _note(on_progress, "answer", "No passage text — withholding")
+    else:
+        _note(on_progress, "write", "Qwen drafting the answer from retrieved pages…")
+        draft_text = draft(question, passages)
+        _note(on_progress, "write", f"Draft ready ({len(draft_text)} chars)")
+
+        calls = {"count": 0, "keeps": 0}
+        base_entails = entailment_checker()
+
+        def counting_entails(premise: str, hypothesis: str) -> bool:
+            if aq._entails is None:
+                _note(
+                    on_progress,
+                    "deberta",
+                    "Loading DeBERTa-v3 MNLI from disk cache → GPU (first paraphrase)…",
+                )
+            calls["count"] += 1
+            kept = base_entails(premise, hypothesis)
+            if kept:
+                calls["keeps"] += 1
+            _note(
+                on_progress,
+                "deberta",
+                f"Call #{calls['count']}: "
+                f"{'entailed — keep' if kept else 'not entailed — drop'}",
+            )
+            return kept
+
+        _note(on_progress, "gate", "Confidence gate (copy / DeBERTa / withhold)…")
+        released = gate(draft_text, passages, counting_entails, question)
+        confidence = confidence_label(released, calls["keeps"])
+        deberta_calls = calls["count"]
+        deberta_keeps = calls["keeps"]
+        if deberta_calls == 0:
+            _note(
+                on_progress,
+                "gate",
+                f"Done — confidence={confidence} (DeBERTa not needed)",
+            )
+        else:
+            _note(
+                on_progress,
+                "gate",
+                f"Done — confidence={confidence}, "
+                f"deberta_calls={deberta_calls}, keeps={deberta_keeps}",
+            )
+
     withheld = confidence == "withheld"
     cited = cited_pages(released)
 
     metrics = None
     if gold is not None or expect_withhold:
+        _note(on_progress, "metrics", "Scoring cited pages against hand-checked gold…")
         scores = prediction_scores(cited, gold or [], withheld, expect_withhold)
-        # Citation accuracy: share of cited pages that match the hand-checked set.
         metrics = {
             "precision": float(scores["precision"]),
             "recall": float(scores["recall"]),
@@ -84,7 +209,14 @@ def run_turn(
             "rank": int(scores["rank"]),
             "citation_accuracy": float(scores["precision"]),
         }
+        _note(
+            on_progress,
+            "metrics",
+            f"precision={metrics['precision']:.3f} recall={metrics['recall']:.3f} "
+            f"f1={metrics['f1']:.3f}",
+        )
 
+    _note(on_progress, "done", "Answer pipeline finished")
     return {
         "question": question,
         "folders": families,
