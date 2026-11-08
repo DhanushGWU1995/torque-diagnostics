@@ -1,4 +1,6 @@
-{"id": "flange-tools", "question": "What tools are needed to flange-mount an ACS880-11?", "relevant": [{"document_id": "3AXD50000349838", "page_number": 17}]}
-{"id": "acs860-reset", "question": "Which faults can the ACS860 reset automatically?", "relevant": [{"document_id": "3AXD50000034052", "page_number": 68}, {"document_id": "3ABD00069490", "page_number": 27}]}
-{"id": "acs860-ov-controller-protect", "question": "How does the ACS860 overvoltage controller protect against high DC bus voltage?", "relevant": [{"document_id": "3AXD50000034052", "page_number": 62}]}
-{"id": "unrelated-stock", "question": "What is ABB share price today?", "withhold": true, "relevant": []}
+{"id": "flange-tools", "demo": "copied-sentence + hybrid top-10 (Q6/Q8)", "question": "What tools are needed to flange-mount an ACS880-11?", "relevant": [{"document_id": "3AXD50000349838", "page_number": 17}]}
+{"id": "acs860-reset", "demo": "copied-sentence multi-doc", "question": "Which faults can the ACS860 reset automatically?", "relevant": [{"document_id": "3AXD50000034052", "page_number": 68}, {"document_id": "3ABD00069490", "page_number": 27}]}
+{"id": "acs860-ov-controller-protect", "demo": "deberta weak paraphrase (Q11)", "question": "How does the ACS860 overvoltage controller protect against high DC bus voltage?", "relevant": [{"document_id": "3AXD50000034052", "page_number": 62}]}
+{"id": "unrelated-stock", "demo": "domain withhold (Q8/Q9)", "question": "What is ABB share price today?", "withhold": true, "relevant": []}
+{"id": "unsupported-on-topic", "demo": "unsupported procedure withhold (Q9)", "question": "What is the secret factory override password for ACS860?", "withhold": true, "relevant": []}
+{"id": "wrong-family-probe", "demo": "wrong-family withhold (Q9)", "question": "What tools are needed to flange-mount an ACS880-11?", "force_family": "ACS860", "withhold": true, "relevant": []}

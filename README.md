@@ -56,14 +56,16 @@ QUESTION='What tools are needed to flange-mount an ACS880-11?' \
 ANSWER=1 uv run python reply/evaluate_answers.py
 ```
 
-Hand-checked samples live in `reply/questions.jsonl` (four lines today):
+Hand-checked / demo samples live in `reply/questions.jsonl` (six lines for the Streamlit dropdown):
 
 | id | Purpose |
 |---|---|
-| `flange-tools` | Copied-sentence path; gold `3AXD50000349838` p.17 |
+| `flange-tools` | Copied-sentence + hybrid top-10 (Q6/Q8); gold `3AXD50000349838` p.17 |
 | `acs860-reset` | ACS860 autoreset; gold p.68 / p.27 |
-| `acs860-ov-controller-protect` | DeBERTa / weak-confidence path; gold p.62 |
-| `unrelated-stock` | Off-topic; expected domain-restricted withhold |
+| `acs860-ov-controller-protect` | DeBERTa / weak-confidence path (Q11); gold p.62 |
+| `unrelated-stock` | Off-topic domain withhold (Q8/Q9) |
+| `unsupported-on-topic` | On-topic but unsupported procedure withhold (Q9) |
+| `wrong-family-probe` | Same flange question forced onto `ACS860` index → wrong-family withhold (Q9) |
 
 Scores: precision, recall, F1, MRR on **cited** pages. Confidence: `copied-sentence`, `deberta`, or `withheld` (plus `deberta_calls`).
 

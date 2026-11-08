@@ -63,7 +63,8 @@ st.caption(
 labels = {
     item["id"]: (
         f"{item['id']}: {item['question']}"
-        + ("  [expect withhold]" if item.get("withhold") else "")
+        + (f"  [{item['demo']}]" if item.get("demo") else "")
+        + ("  [expect withhold]" if item.get("withhold") and not item.get("demo") else "")
     )
     for item in samples
 }
@@ -97,6 +98,8 @@ with right:
 - **Top 10** hybrid retrieval passages  
 - **Citation metrics** when the question is one of the hand-checked samples  
   (precision, recall, F1, MRR, citation accuracy = precision)
+
+**Demo samples (live walkthrough):** copied-sentence · DeBERTa · domain withhold · unsupported withhold · wrong-family withhold
 """
     )
 

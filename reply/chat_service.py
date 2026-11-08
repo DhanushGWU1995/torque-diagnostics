@@ -118,6 +118,7 @@ def run_turn(
     *,
     gold: list[dict] | None = None,
     expect_withhold: bool = False,
+    force_family: str | None = None,
     retrieve_k: int = RETRIEVE_K,
     show_passages: int = SHOW_PASSAGES,
     on_progress: ProgressFn | None = None,
@@ -129,8 +130,16 @@ def run_turn(
 
     warm_models(on_progress)
 
-    _note(on_progress, "route", "Choosing equipment folder(s) from the question…")
-    families = route_families(question)
+    if force_family:
+        families = [force_family.strip()]
+        _note(
+            on_progress,
+            "route",
+            f"Demo override — forcing folder {families[0]} (wrong-family probe)…",
+        )
+    else:
+        _note(on_progress, "route", "Choosing equipment folder(s) from the question…")
+        families = route_families(question)
     _note(on_progress, "route", f"Folders: {', '.join(families)}")
 
     _note(
@@ -235,10 +244,12 @@ def run_turn(
 
 
 def run_sample(item: dict, **kwargs) -> dict:
+    forced = str(item.get("force_family") or "").strip() or None
     return run_turn(
         item["question"],
         gold=item.get("relevant") or [],
         expect_withhold=bool(item.get("withhold")),
+        force_family=forced,
         **kwargs,
     )
 
