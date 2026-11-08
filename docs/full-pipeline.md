@@ -263,10 +263,30 @@ Add a new hand-checked question as one more JSON line in `reply/questions.jsonl`
 
 The Streamlit app in `ui/chat_app.py` uses the same retrieve → Qwen → DeBERTa path. It shows the answer, confidence label, DeBERTa call/keep counts, top 10 passages, and citation metrics for the sample questions. Run it on the GPU instance that already has the indexes (not on GitHub Pages or a free Hugging Face Space: those cannot hold Qwen, the private ABB indexes, or the course S3 credentials).
 
+Start (foreground):
+
 ```bash
 cd ~/dl-venv/nlp_project   # or the clone root after uv sync
 source ~/dl-venv/bin/activate   # or: uv sync && source .venv/bin/activate
-streamlit run ui/chat_app.py --server.address 127.0.0.1 --server.port 8501
+set -a; . ~/.aws_session.env; set +a   # or export AWS_* here
+streamlit run ui/chat_app.py --server.address 127.0.0.1 --server.port 8501 --server.headless true
+```
+
+Start (background):
+
+```bash
+cd ~/dl-venv/nlp_project && source ~/dl-venv/bin/activate
+set -a; . ~/.aws_session.env; set +a
+nohup streamlit run ui/chat_app.py --server.address 127.0.0.1 --server.port 8501 --server.headless true \
+  > /tmp/streamlit.log 2>&1 &
+echo $! > /tmp/streamlit.pid
+```
+
+Stop:
+
+```bash
+pkill -f "streamlit run ui/chat_app.py"
+# or: kill "$(cat /tmp/streamlit.pid)"
 ```
 
 From your laptop on the GWU VPN, forward the port and open the UI locally:
@@ -276,7 +296,7 @@ ssh -i /Users/dhanushmathivanan/dhanush_gwu/aws_config_keys/AWS_NLP_Config_keys.
   -L 8501:127.0.0.1:8501 ubuntu@THE_PUBLIC_DNS
 ```
 
-Then open `http://127.0.0.1:8501`. Keep Streamlit bound to localhost so the course security group does not need a new public port.
+Then open `http://127.0.0.1:8501`. Keep Streamlit bound to localhost so the course security group does not need a new public port. Each Answer click shows live stage progress (model reuse vs disk→GPU load, retrieve, write, DeBERTa, metrics). See the Chat UI section in `README.md` for the sample-question list and model-cache rules.
 
 ## Rules for the whole run
 
