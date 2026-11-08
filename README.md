@@ -36,6 +36,10 @@ export AWS_DEFAULT_REGION=us-east-1
 
 On EC2 you can keep the same exports in `~/.aws_session.env` and `set -a; . ~/.aws_session.env; set +a` before a long job or Streamlit.
 
+## Architecture presentation
+
+[docs/architecture-deck/Torque-Diagnostics-Architecture.pptx](docs/architecture-deck/Torque-Diagnostics-Architecture.pptx) — 14-slide system architecture deck (ingest → hybrid retrieval → gated generation → evaluation → UI).
+
 ## Documentation
 
 - [docs/full-pipeline.md](docs/full-pipeline.md) — full EC2 run: download, chunking, indexes, answer, validation, chat UI.
