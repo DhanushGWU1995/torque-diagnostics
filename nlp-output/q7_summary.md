@@ -1,13 +1,11 @@
 # Q7 — Identifier families summary
 
-_Not generated yet on this machine._ Run on EC2 with S3 passage access (no GPU required):
+Scanned all passage shards on EC2 (`28,665` parquet files). Distinct identifier values:
 
-```bash
-uv run python nlp-output/q7_identifier_families.py
-```
+| kind | total | unique to one family | shared across families |
+|---|---:|---:|---:|
+| fault_code | 1103 | 794 | 309 |
+| part | 1132 | 1090 | 42 |
+| procedure | 1957 | 1865 | 92 |
 
-That writes:
-
-- `q7_identifier_families.csv` — each fault/part/procedure value with family count
-- `q7_summary.csv` — unique vs shared counts by kind
-- `q7_shared_vs_unique.png` — chart
+Artifacts: `q7_identifier_families.csv`, `q7_summary.csv`, `q7_shared_vs_unique.png`.

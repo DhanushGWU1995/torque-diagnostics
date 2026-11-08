@@ -1,5 +1,5 @@
 case_id,question,routed_families,forced_family,planned_reason,observed_reason,observed_confidence,observed_withheld,explanation
-unrelated-stock,What is ABB share price today?,library,,domain_out_of_scope,,,,Off-topic finance ask; gate releases domain-restricted withhold.
-wrong-family-probe,What tools are needed to flange-mount an ACS880-11?,ACS880-11,ACS860,wrong_family,,,,Same flange question forced onto ACS860 index; pages do not state ACS880-11 flange tools → withhold from wrong folder.
-unsupported-on-topic,What is the secret factory override password for ACS860?,ACS860,,unsupported_procedure,,,,"On-topic family, but manuals do not state this procedure → withhold."
-flange-tools,What tools are needed to flange-mount an ACS880-11?,ACS880-11,,answered,,,,Correct family + supported page → cited answer (not a withhold).
+unrelated-stock,What is ABB share price today?,library,,domain_out_of_scope,domain_out_of_scope,withheld,yes,Off-topic finance ask; gate releases domain-restricted withhold.
+wrong-family-probe,What tools are needed to flange-mount an ACS880-11?,ACS860,ACS860,wrong_family,wrong_family,withheld,yes,Same flange question forced onto ACS860 index; pages do not state ACS880-11 flange tools → withhold from wrong folder.
+unsupported-on-topic,What is the secret factory override password for ACS860?,ACS860,,unsupported_procedure,unsupported_procedure,withheld,yes,"On-topic family, but manuals do not state this procedure → withhold."
+flange-tools,What tools are needed to flange-mount an ACS880-11?,ACS880-11,,answered,answered,copied-sentence,no,Correct family + supported page → cited answer (not a withhold).

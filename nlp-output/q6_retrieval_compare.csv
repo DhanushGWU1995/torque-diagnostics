@@ -1,0 +1,33 @@
+question_id,question,asset_family,document_id,page_number,chunk_id,bm25_rank,embed_rank,hybrid_rank,hybrid_score
+flange-tools,What tools are needed to flange-mount an ACS880-11?,ACS880-11,3AXD50000181506,2,3AXD50000181506:0002:000,1,1,1,2.0000
+flange-tools,What tools are needed to flange-mount an ACS880-11?,ACS880-11,3AXD50000133611,2,3AXD50000133611:0002:000,2,2,2,1.9491
+flange-tools,What tools are needed to flange-mount an ACS880-11?,ACS880-11,3AXD50000045932,42,3AXD50000045932:0042:000,3,10,4,1.7234
+flange-tools,What tools are needed to flange-mount an ACS880-11?,ACS880-11,3AXD50000349838,1,3AXD50000349838:0001:000,4,5,3,1.7577
+flange-tools,What tools are needed to flange-mount an ACS880-11?,ACS880-11,3AXD50000349838,40,3AXD50000349838:0040:000,5,8,6,1.7069
+flange-tools,What tools are needed to flange-mount an ACS880-11?,ACS880-11,3AXD50000349838,42,3AXD50000349838:0042:000,6,9,8,1.6956
+flange-tools,What tools are needed to flange-mount an ACS880-11?,ACS880-11,3AXD50000349838,45,3AXD50000349838:0045:000,7,7,7,1.7057
+flange-tools,What tools are needed to flange-mount an ACS880-11?,ACS880-11,3AXD50000349838,3,3AXD50000349838:0003:000,8,6,5,1.7119
+flange-tools,What tools are needed to flange-mount an ACS880-11?,ACS880-11,3AXD50000045932,30,3AXD50000045932:0030:000,9,,,
+flange-tools,What tools are needed to flange-mount an ACS880-11?,ACS880-11,3AXD50000349838,7,3AXD50000349838:0007:000,10,,10,1.5938
+flange-tools,What tools are needed to flange-mount an ACS880-11?,ACS880-11,3AXD50000133611,1,3AXD50000133611:0001:000,,3,9,1.6222
+flange-tools,What tools are needed to flange-mount an ACS880-11?,ACS880-11,3AXD50000181506,1,3AXD50000181506:0001:000,,4,,
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3AXD50000034052,68,3AXD50000034052:0068:000,1,,2,1.8465
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3AXD50000034052,213,3AXD50000034052:0213:000,2,7,1,1.9361
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3AXD50001240004,260,3AXD50001240004:0260:000,3,,3,1.7841
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3ABD00069490,27,3ABD00069490:0027:000,4,,5,1.6817
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3AXD50001240004,261,3AXD50001240004:0261:000,5,,6,1.6690
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3ABD00069490,123,3ABD00069490:0123:000,6,,4,1.6964
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3ABD00069490,69,3ABD00069490:0069:000,7,,10,1.5876
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3AXD50001240004,410,3AXD50001240004:0410:000,8,,8,1.6129
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3AXD50001336066,22,3AXD50001336066:0022:000,9,,9,1.6049
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3AXD50000034054,214,3AXD50000034054:0214:000,10,,,
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3AXD50000034052,101,3AXD50000034052:0101:000,,1,,
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3AXD50000034052,102,3AXD50000034052:0102:000,,2,,
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3AXD50001240004,118,3AXD50001240004:0118:000,,3,,
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3AXD50001240004,119,3AXD50001240004:0119:000,,4,,
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3AXD50000034052,103,3AXD50000034052:0103:000,,5,,
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3AXD50000034052,104,3AXD50000034052:0104:000,,6,,
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3AXD50001240004,121,3AXD50001240004:0121:000,,8,,
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3ABD00069489,254,3ABD00069489:0254:000,,9,,
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3AXD50001240004,122,3AXD50001240004:0122:000,,10,,
+acs860-reset,Which faults can the ACS860 reset automatically?,ACS860,3ABD00069489,96,3ABD00069489:0096:000,,,7,1.6246
