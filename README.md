@@ -44,6 +44,8 @@ On EC2 you can keep the same exports in `~/.aws_session.env` and `set -a; . ~/.a
 
 - [docs/full-pipeline.md](docs/full-pipeline.md) — full EC2 run: download, chunking, indexes, answer, validation, chat UI.
 - [docs/milestone-1-data-and-questions.docx](docs/milestone-1-data-and-questions.docx) — project proposal with EDA charts.
+- [nlp-output/](nlp-output/) — proposal NLP/ML questions 6–11 (retrieval compare, identifier families, gate cite/drop, withhold reasons, confidence method + UI capture notes).
+- [eda-output/](eda-output/) — exploratory questions 1–5 charts and tables.
 
 ## Reply and evaluation (CLI)
 
@@ -135,7 +137,9 @@ data-ingestion/          PDF upload to S3
 data-preprocessing/      chunking, coverage
 data-indexing/           tokens, BM25, embeddings, hybrid query
 eda-output/              five EDA questions + charts
+nlp-output/              NLP questions 6–11 scripts + artifacts
 reply/                   answer, evaluate, chat_service, questions.jsonl
 ui/chat_app.py           Streamlit chat UI
 docs/full-pipeline.md    end-to-end EC2 runbook
 ```
+

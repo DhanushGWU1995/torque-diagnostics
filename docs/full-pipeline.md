@@ -240,6 +240,17 @@ Any other technician question uses the same command. Change only `QUESTION`.
 
 The log prints `folders:`, then `writer=Qwen/Qwen2.5-7B-Instruct source=cache` when the weights are already in `models/huggingface`. `source=huggingface` means this process is downloading that model. `checker=` is printed only when a sentence needs DeBERTa. Each kept sentence ends with the document id and page. The first reply downloads Qwen. It downloads DeBERTa only if a sentence is a partial paraphrase.
 
+## 11b. NLP proposal questions 6–11
+
+`nlp-output/` answers the Milestone NLP/ML questions (retrieval compare, identifier families, gate cite/drop, withhold reasons, confidence method). See `nlp-output/README.md`. On EC2:
+
+```bash
+uv run python nlp-output/answer_nlp_questions.py
+# LIVE=1 also runs Qwen/DeBERTa sample paths for Q8/Q9
+```
+
+Streamlit screenshots for Q8–Q11 go in `nlp-output/ui-evidence/` (capture checklist in that folder).
+
 ## 12. Validate the cited pages
 
 `reply/evaluate_answers.py` reads `reply/questions.jsonl`. Each line is one question plus the document pages that support it. `ANSWER=1` is required. The script runs the same reply as step 11 for every line, scores the pages cited in the answer, and writes `evaluation_report.txt` in the repository root.
