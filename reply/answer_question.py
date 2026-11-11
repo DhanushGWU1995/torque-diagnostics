@@ -226,10 +226,11 @@ def cite_label(rows: list[dict]) -> str:
 
 
 def gate(answer: str, passages: list[dict], entails, question: str = "") -> str:
-    """Keep each line a retrieved page states, and cite that page.
+    """Release fluent supported claims with citations.
 
-    Off-topic or unsupported asks exit here as WITHHOLD (domain-restricted
-    refusal). Streamlit only displays that string; it does not invent policy.
+    Prefer the writer's wording when a retrieved page supports the claim
+    (exact / strong overlap / DeBERTa entailment). Still withhold when nothing
+    is supported. Streamlit only displays the returned string.
     """
     if is_refusal(answer):
         return WITHHOLD
@@ -237,32 +238,49 @@ def gate(answer: str, passages: list[dict], entails, question: str = "") -> str:
     kept: list[tuple[str, list[dict]]] = []
     seen_wording: set[str] = set()
     for sentence in content_sentences(answer):
-        claim = claim_text(sentence)
+        claim = claim_text(sentence).rstrip(".").strip()
         if not re.search(r"[A-Za-z]", claim):
             continue
         novel = content_words(claim) - question_words
         covered: list[tuple[int, str, dict]] = []
-        if len(novel) >= 4:
+        if len(novel) >= 3:
             for row in passages:
-                sentence = covering_sentence(row["text"], novel)
-                if sentence:
-                    shared = sum(word in sentence.lower() for word in novel)
-                    covered.append((shared, sentence.rstrip(".").strip(), row))
+                page_sentence = covering_sentence(row["text"], novel)
+                if page_sentence:
+                    shared = sum(word in page_sentence.lower() for word in novel)
+                    covered.append((shared, page_sentence.rstrip(".").strip(), row))
         if covered:
             best_shared = max(item[0] for item in covered)
-            best = [item for item in covered if item[0] == best_shared]
-            wording = min(best, key=lambda item: len(item[1]))[1]
-            rows = [item[2] for item in best]
-            if wording.lower() not in seen_wording:
-                seen_wording.add(wording.lower())
-                kept.append((wording, rows))
+            # Keep fluent Qwen wording; cite every page that covers the claim.
+            rows = [item[2] for item in covered if item[0] == best_shared]
+            if claim.lower() not in seen_wording:
+                seen_wording.add(claim.lower())
+                kept.append((claim, rows))
             continue
+        # Whole-sentence support: keep fluent multi-fact drafts when most claim
+        # words appear in retrieved pages (avoids chopping tool lists on commas).
+        if novel:
+            supporters: list[dict] = []
+            for row in passages:
+                blob = row["text"].lower()
+                hit = sum(1 for word in novel if word in blob)
+                ratio = hit / len(novel)
+                found = best_line(row["text"], novel)
+                line = found[0] if found else None
+                if ratio >= 0.5 or (found and found[1] >= 0.40) or (
+                    line and ratio >= 0.34 and entails(line, claim)
+                ):
+                    supporters.append(row)
+            if supporters and claim.lower() not in seen_wording:
+                seen_wording.add(claim.lower())
+                kept.append((claim, supporters))
+                continue
         for part in clauses(claim):
+            part = part.rstrip(".").strip()
             novel = content_words(part) - question_words
             if not novel:
                 continue
-            supporters: list[dict] = []
-            wordings: list[str] = []
+            supporters = []
             for row in passages:
                 found = best_line(row["text"], content_words(part))
                 line = found[0] if found else None
@@ -270,15 +288,15 @@ def gate(answer: str, passages: list[dict], entails, question: str = "") -> str:
                     line_text.lower().rstrip(".:") == part.lower().rstrip(".:")
                     for line_text in page_lines(row["text"])
                 )
+                # Slightly looser overlap (0.40) before DeBERTa; still require support.
                 if exact:
-                    wordings.append(line or part)
                     supporters.append(row)
-                elif found and (found[1] >= 0.5 or entails(line, part)):
-                    wordings.append(line)
+                elif found and (found[1] >= 0.40 or entails(line, part)):
                     supporters.append(row)
             if not supporters:
                 continue
-            wording = min(wordings, key=len).rstrip(".").strip()
+            # Prefer the drafted clause for fluency; citations still attached.
+            wording = part
             if wording.lower() in seen_wording:
                 continue
             seen_wording.add(wording.lower())
@@ -304,14 +322,7 @@ def gate(answer: str, passages: list[dict], entails, question: str = "") -> str:
     ]
     if not kept:
         return WITHHOLD
-    same_pages = all(cite_label(rows) == cite_label(kept[0][1]) for _, rows in kept)
-    cites = cite_label(kept[0][1])
-    if same_pages and len(kept) > 1 and len(kept[0][1]) == 1:
-        opening = opening_line(kept[0][1][0]["text"])
-        items = "; ".join(wording for wording, _ in kept)
-        if opening and opening.lower() not in items.lower():
-            return f"{opening}: {items} ({cites})."
-        return f"{items} ({cites})."
+    # Join fluent sentences; each keeps its own citation(s).
     return " ".join(f"{wording} ({cite_label(rows)})." for wording, rows in kept)
 
 
@@ -392,25 +403,31 @@ def draft(question: str, passages: list[dict]) -> str:
         heading = f"document {row['document_id']}, page {row['page_number']}"
         blocks.append(f"{heading}\n{row['text']}")
     system = (
-        "You are a technician assistant for ABB manuals. "
-        "Write a clear answer in complete sentences that a technician can read aloud. "
-        "Copy tool names and steps in the words used by the passages, one fact per sentence. "
-        "Name every tool or step the passage lists. "
-        "When a passage names the circumstances in one sentence, copy that sentence whole. "
-        "Do not use bullet points. "
-        "If any passage states the tools or the steps, write that answer. "
-        "Do not add a tool, a step, or a value that the passages do not state. "
-        "Do not name a document id or a page number. "
+        "You are a technician assistant for ABB drive manuals. "
+        "Write a clear, fluent answer in plain language a technician can follow. "
+        "Use only facts stated in the passages. Keep equipment names, fault codes, "
+        "tool names, and parameter values exactly as written. "
+        "You may rephrase for readability and use short connecting sentences, "
+        "but do not invent tools, steps, values, or warnings the passages omit. "
+        "Prefer complete sentences over bullet lists. "
+        "Do not name a document id or a page number — citations are added later. "
         "Your knowledge is limited to ABB drive, motor, and related equipment manuals. "
-        "If the question is outside that subject, or none of the passages state the "
-        f"procedure, reply only: {REFUSAL}."
+        "If the question is outside that subject, or none of the passages support an "
+        f"answer, reply only: {REFUSAL}."
     )
     user = "Passages:\n\n" + "\n\n".join(blocks) + f"\n\nQuestion: {question}"
     tokenizer, model = load_writer()
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
     prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-    output = model.generate(**inputs, max_new_tokens=400, do_sample=False)
+    output = model.generate(
+        **inputs,
+        max_new_tokens=500,
+        do_sample=True,
+        temperature=0.35,
+        top_p=0.9,
+        pad_token_id=tokenizer.eos_token_id,
+    )
     text = tokenizer.decode(output[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True)
     return text.strip()
 
