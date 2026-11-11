@@ -225,6 +225,14 @@ def cite_label(rows: list[dict]) -> str:
     return "; ".join(f"document {doc}, page {page}" for doc, page in seen)
 
 
+def sources_footer(rows: list[dict]) -> str:
+    """End-of-answer citation line; cited_pages() still parses document/page pairs."""
+    label = cite_label(rows)
+    if not label:
+        return ""
+    return f"More information can be found in {label}."
+
+
 def gate(answer: str, passages: list[dict], entails, question: str = "") -> str:
     """Release fluent supported claims with citations.
 
@@ -322,8 +330,16 @@ def gate(answer: str, passages: list[dict], entails, question: str = "") -> str:
     ]
     if not kept:
         return WITHHOLD
-    # Join fluent sentences; each keeps its own citation(s).
-    return " ".join(f"{wording} ({cite_label(rows)})." for wording, rows in kept)
+    # Fluent body first; all supporting sources listed once at the end.
+    body = " ".join(
+        (wording if wording.endswith((".", "!", "?")) else f"{wording}.")
+        for wording, _rows in kept
+    )
+    all_rows: list[dict] = []
+    for _wording, rows in kept:
+        all_rows.extend(rows)
+    footer = sources_footer(all_rows)
+    return f"{body} {footer}".strip()
 
 
 def retrieve(question: str, families: list[str], k: int) -> list[dict]:
