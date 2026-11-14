@@ -1,11 +1,10 @@
-"""Read passage Parquet for one equipment folder.
+"""Read passage parquet for one equipment folder.
 
-Passage files live at
+Passage files live at:
+  chunks/asset_family=<family>/<document_id>.parquet
 
-    chunks/asset_family=<family>/<document_id>.parquet
-
-Finished token, BM25, and embedding files are left in place. A later index
-build skips a finished file unless REBUILD=1.
+Finished token, BM25, and embedding files are left in place. A later
+index build skips a finished file unless REBUILD=1.
 """
 
 from __future__ import annotations

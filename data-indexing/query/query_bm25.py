@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Return the BM25 passages for one technician question.
+"""BM25-only retrieval for one technician question.
 
-This reads the index written by build_bm25.py. It does not call a language
-model. The printed rows are the pages a later reply step is allowed to use.
+Reads the index from build_bm25.py. No language model. Printed rows are
+the pages a later reply step is allowed to use.
 
     QUESTION='necessary tools for flange mounting ACS880-11' \\
         uv run python data-indexing/query/query_bm25.py
 
-INDEX_FAMILY overrides the folder router. Otherwise the question names
-the folder. A question with no series reads library.
+INDEX_FAMILY forces a folder; otherwise the question text picks it.
+Questions with no series name fall back to library.
 """
 
 from __future__ import annotations

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Torque Diagnostics chat UI (Streamlit).
+"""Streamlit UI for Torque Diagnostics.
 
-Run on the EC2 that already holds the indexes and GPU models:
+Run this on the GPU EC2 that already has the indexes:
 
-    cd ~/dl-venv/nlp_project   # or the repo root
+    cd ~/dl-venv/nlp_project
     source ~/dl-venv/bin/activate
     streamlit run ui/chat_app.py --server.address 127.0.0.1 --server.port 8501
 
-From your laptop (VPN), forward the port:
+SSH tunnel from laptop:
 
     ssh -i .../AWS_NLP_Config_keys.pem -L 8501:127.0.0.1:8501 ubuntu@EC2_IP
 
@@ -36,18 +36,18 @@ from chat_service import (  # noqa: E402
 st.set_page_config(page_title="Torque Diagnostics", layout="wide")
 st.title("Torque Diagnostics")
 st.caption(
-    "ABB drive manuals · hybrid BM25 + embedding retrieval · Qwen reply · DeBERTa confidence gate"
+    "ABB drive manuals | hybrid BM25 + embedding retrieval | Qwen reply | DeBERTa confidence gate"
 )
 
 
-@st.cache_resource(show_spinner="Loading sample questions…")
+@st.cache_resource(show_spinner="Loading sample questions...")
 def _samples() -> list[dict]:
     return sample_questions()
 
 
-@st.cache_resource(show_spinner="Loading embedding + Qwen into GPU (once per server)…")
+@st.cache_resource(show_spinner="Loading embedding + Qwen into GPU (once per server)...")
 def _models() -> dict[str, str]:
-    """Pin models in Streamlit's process cache so Answer clicks do not reload weights."""
+    """Keep models in Streamlit's process cache so Answer clicks don't reload weights."""
     return warm_models()
 
 
@@ -91,15 +91,17 @@ with right:
     st.subheader("What this panel shows")
     st.markdown(
         """
-- **Answer** with document id and page citations  
-- **Confidence**: `copied-sentence`, `deberta`, or `withheld`  
-- **`withheld`**: domain-restricted refusal from the confidence gate (off-topic or unsupported)  
-- **DeBERTa**: whether the gate called it, call count, keep count  
-- **Top 10** hybrid retrieval passages  
-- **Citation metrics** when the question is one of the hand-checked samples  
-  (precision, recall, F1, MRR, citation accuracy = precision)
+- Answer with document id and page citations
+- Confidence: `copied-sentence`, `deberta`, or `withheld`
+- `withheld`: domain-restricted refusal from the confidence gate
+  (off-topic or unsupported by retrieved pages)
+- DeBERTa: whether the gate called it, call count, keep count
+- Top 10 hybrid retrieval passages
+- Citation metrics when the question is a hand-checked sample
+  (precision, recall, F1, MRR; citation accuracy = precision)
 
-**Demo samples (live walkthrough):** copied-sentence · DeBERTa · domain withhold · unsupported withhold · wrong-family withhold
+Demo samples (live walkthrough): copied-sentence, DeBERTa, domain
+withhold, unsupported withhold, wrong-family withhold
 """
     )
 
@@ -166,12 +168,12 @@ def _run_with_progress(label: str, runner) -> dict:
 if run_clicked and question.strip():
     if selected is not None and question.strip() == selected["question"].strip():
         result = _run_with_progress(
-            "Answering sample question…",
+            "Answering sample question...",
             lambda on_progress: run_sample(selected, on_progress=on_progress),
         )
     else:
         result = _run_with_progress(
-            "Answering question…",
+            "Answering question...",
             lambda on_progress: run_turn(question, on_progress=on_progress),
         )
     st.session_state.history.insert(0, result)
@@ -181,12 +183,12 @@ elif st.session_state.history and not run_all:
 
 if run_all:
     batch = []
-    progress = st.progress(0.0, text="Scoring samples…")
+    progress = st.progress(0.0, text="Scoring samples...")
     for index, item in enumerate(samples):
-        progress.progress(index / max(len(samples), 1), text=f"Scoring {item['id']}…")
+        progress.progress(index / max(len(samples), 1), text=f"Scoring {item['id']}...")
         batch.append(
             _run_with_progress(
-                f"Sample {item['id']}…",
+                f"Sample {item['id']}...",
                 lambda on_progress, item=item: run_sample(item, on_progress=on_progress),
             )
         )
@@ -195,7 +197,7 @@ if run_all:
 
 if st.session_state.batch:
     st.markdown("---")
-    st.markdown("### Sample-set confidence matrix")
+    st.markdown("### Sample confidence counts")
     counts = confidence_matrix(st.session_state.batch)
     matrix_cols = st.columns(3)
     matrix_cols[0].metric("copied-sentence", counts["copied-sentence"])
@@ -220,5 +222,5 @@ if st.session_state.batch:
         )
     st.dataframe(rows, use_container_width=True)
     for result in st.session_state.batch:
-        with st.expander(f"{result['confidence']} · {result['question'][:80]}"):
+        with st.expander(f"{result['confidence']} | {result['question'][:80]}"):
             _render_result(result)

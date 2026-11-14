@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Proposal Q6 — BM25 vs embedding vs hybrid pages for two sample questions.
+"""Proposal Q6: compare BM25 vs embedding vs hybrid pages on two samples.
 
-Writes nlp-output/q6_retrieval_compare.csv and q6_summary.md.
+Writes q6_retrieval_compare.csv and q6_summary.md under nlp-output/.
 
     uv run python nlp-output/q6_retrieval_compare.py
 """

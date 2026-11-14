@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
-"""Score the answer's cited pages against the hand-checked pages.
+"""Score cited pages against the hand-checked gold pages.
 
-Each line of the question file is one JSON object with an id, a question,
-and the pages that support it. Precision, recall, F1, and MRR use the
-pages the answer cites, in the order they appear. A cited page is correct
-when its document id and page number are in that list. MRR uses the
-position of the first correct citation. The indexes are not rebuilt.
+Each line in questions.jsonl is one JSON object: id, question, and the
+pages that support it. Precision / recall / F1 / MRR use the pages the
+answer cites, in citation order. A cite counts as correct when both
+document_id and page_number are in the gold list. MRR uses the position
+of the first correct citation. Indexes are not rebuilt.
 
-Set ANSWER=1 to run Qwen and the confidence gate. Without it there is no
-prediction to score.
+Set ANSWER=1 to run Qwen + the confidence gate. Without that there is
+no prediction to score.
 
     uv run python reply/evaluate_answers.py
-
     ANSWER=1 uv run python reply/evaluate_answers.py
 
-QUESTIONS overrides the question file. TOP_K overrides the passage cutoff.
-The report is written to evaluation_report.txt in the working directory.
+QUESTIONS overrides the question file. TOP_K overrides the passage
+cutoff. Report goes to evaluation_report.txt in the working directory.
 """
 
 from __future__ import annotations

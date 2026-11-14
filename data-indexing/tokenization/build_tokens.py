@@ -1,26 +1,23 @@
 #!/usr/bin/env python3
-"""Write BM25 and identifier tokens for one equipment folder.
+"""Write BM25 + identifier tokens for one equipment folder.
 
-This reads passage Parquet under chunks/asset_family=<family>/. It does
-not open the PDFs and it does not build the embedding index. Set
-INDEX_FAMILY to one folder for a test. INDEX_FAMILY=all writes every
-folder, which is a full read of the shards. A folder that already has a
-finished token file is skipped. library is tokenized with three processes.
-Every other folder stays on one process. The tokens and their order are
-the same either way.
+Reads passage parquet under chunks/asset_family=<family>/. Does not open
+PDFs and does not build embeddings. INDEX_FAMILY picks one folder for a
+test; INDEX_FAMILY=all writes every folder (full shard read). Finished
+token files are skipped unless REBUILD=1. library uses three processes;
+other folders stay single-process. Token text and order are the same
+either way.
 
-Credentials come from the environment. This file does not contain an
-access key.
+Credentials come from the environment (no access key in this file).
 
     INDEX_FAMILY=ACS880-11 uv run python data-indexing/tokenization/build_tokens.py
 
-On the EC2 instance, from ~/dl-venv/nlp_project:
+On EC2 from ~/dl-venv/nlp_project:
 
     INDEX_FAMILY=ACS880-11 ~/dl-venv/bin/python data-indexing/tokenization/build_tokens.py
 
-Each folder is written to
-
-    s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/index/tokens/asset_family=<family>.parquet
+Writes to:
+  s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/index/tokens/asset_family=<family>.parquet
 """
 
 from __future__ import annotations

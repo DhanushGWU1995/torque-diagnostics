@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Proposal Q9 — why an answer was withheld.
+"""Proposal Q9: classify why an answer was withheld.
 
-Labels each case as one of:
+Labels used:
   - domain_out_of_scope
   - wrong_family
   - unsupported_procedure
   - answered (not withheld)
 
-Offline table covers the hand-checked samples and a wrong-family probe.
-With LIVE=1, also retrieves + gates on GPU/S3 and fills observed labels.
+Offline table covers the hand-checked samples plus a wrong-family probe.
+LIVE=1 also runs retrieve + gate on GPU/S3 and fills observed labels.
 
     uv run python nlp-output/q9_withhold_reason.py
     LIVE=1 uv run python nlp-output/q9_withhold_reason.py

@@ -1,6 +1,8 @@
-# NLP output (proposal questions 6–11)
+# NLP output (proposal questions 6-11)
 
-Artifacts that answer the **Natural language processing** and **Statistics / ML** questions from the Milestone 2 proposal. Exploratory Q1–Q5 stay under `eda-output/`.
+Artifacts for the Natural language processing and Statistics / ML
+questions from the Milestone 2 proposal. Exploratory Q1-Q5 stay under
+`eda-output/`.
 
 | Proposal Q | What it asks | How we answer it | Artifact |
 |---|---|---|---|

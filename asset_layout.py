@@ -1,9 +1,9 @@
-"""Folder names for the raw PDFs and the Parquet shards.
+"""Map PDF titles to raw / chunk folder names.
 
-A file whose title names one product series is stored under that series.
-ACS880 frames and the two firmware manuals keep the folders they already
-use. A technical file with no series in the title, and company documents
-such as catalogues, articles, and brochures, stay under library.
+If the title names a product series, that series folder is used. ACS880
+frames and the two firmware manuals keep the folders they already use.
+Technical files with no series in the title, plus catalogues / articles /
+brochures, stay under library.
 """
 
 from __future__ import annotations

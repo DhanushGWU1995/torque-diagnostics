@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
-"""Write a technician answer from the retrieved pages, then check it.
+"""Answer a technician question from hybrid retrieval + Qwen, then gate it.
 
-The hybrid search supplies the passage text. Qwen2.5-7B-Instruct writes the
-reply from those rows only. A statement is kept when one retrieved line
-states it, and that page is cited. DeBERTa v3 checks a statement that is not
-copied verbatim. Off-topic questions and procedures no retrieved row states
-are withheld with a domain-restricted refusal (indexed ABB manuals only).
+Hybrid search gives the passage text. Qwen2.5-7B-Instruct drafts from those
+rows only. We keep a claim when a retrieved line supports it and cite that
+page. DeBERTa-v3 MNLI covers partial paraphrases that aren't copied
+verbatim. Off-topic asks, or procedures the pages don't state, get the
+domain withhold (indexed ABB manuals only).
 
-Each model is downloaded once into models/huggingface. The embedding model
-and Qwen stay loaded for the rest of the process. DeBERTa is loaded on the
-first partial paraphrase and then reused.
+Models download once into models/huggingface. BGE + Qwen stay loaded for
+the process; DeBERTa loads on the first paraphrase check and is reused.
 
     QUESTION='What tools are needed to flange-mount an ACS880-11?' \\
         uv run python reply/answer_question.py
 
-INDEX_FAMILY overrides the folder router. Otherwise the question names
-the folder. Credentials come from the environment. This file does not
-contain an access key.
+INDEX_FAMILY forces a folder; otherwise the question text picks it.
+AWS credentials come from the environment (nothing hard-coded here).
 """
 
 from __future__ import annotations
@@ -46,7 +44,7 @@ ENTAIL_MODEL = "MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli"
 DOMAIN_SCOPE = (
     "ABB drive, motor, and related equipment manuals indexed for Torque Diagnostics"
 )
-# Short line Qwen may emit; the gate normalizes every refusal to WITHHOLD.
+# short refusal string we tell Qwen to emit; gate maps it to WITHHOLD
 REFUSAL = "sorry — my domain knowledge is restricted to the indexed abb manuals"
 WITHHOLD = (
     f"Sorry — my domain knowledge is restricted to {DOMAIN_SCOPE}. "
@@ -89,7 +87,7 @@ def claim_text(sentence: str) -> str:
 
 
 def is_refusal(answer: str) -> bool:
-    """True when the writer (or gate) declined outside-scope / unsupported asks."""
+    """Check if the text is basically a refuse / withhold reply."""
     text = answer.strip()
     if not text:
         return False
@@ -145,7 +143,7 @@ def page_sentences(text: str) -> list[str]:
 
 
 def covering_sentence(text: str, words: set[str]) -> str | None:
-    """A manual sentence that already lists the claim's circumstances together."""
+    """Find a page sentence that covers most of the claim words."""
     if len(words) < 4:
         return None
     found: list[tuple[int, str]] = []
@@ -159,7 +157,7 @@ def covering_sentence(text: str, words: set[str]) -> str | None:
 
 
 def best_line(text: str, claim_words: set[str]) -> tuple[str, float] | None:
-    """Return the manual line that the claim restates, with its word overlap."""
+    """Best overlapping line on the page + overlap score."""
     best: str | None = None
     best_score = 0.0
     for line in page_lines(text):
@@ -226,7 +224,7 @@ def cite_label(rows: list[dict]) -> str:
 
 
 def sources_footer(rows: list[dict]) -> str:
-    """End-of-answer citation line; cited_pages() still parses document/page pairs."""
+    """One citation line at the end of the answer (doc id + page)."""
     label = cite_label(rows)
     if not label:
         return ""
@@ -234,11 +232,12 @@ def sources_footer(rows: list[dict]) -> str:
 
 
 def gate(answer: str, passages: list[dict], entails, question: str = "") -> str:
-    """Release fluent supported claims with citations.
+    """Keep supported draft sentences, attach sources, or withhold.
 
-    Prefer the writer's wording when a retrieved page supports the claim
-    (exact / strong overlap / DeBERTa entailment). Still withhold when nothing
-    is supported. Streamlit only displays the returned string.
+    Prefer Qwen's wording when a retrieved page supports the claim (exact
+    copy, strong word overlap, or DeBERTa entailment). Drop unsupported
+    claims. If nothing survives, return WITHHOLD. Streamlit just shows
+    whatever string this returns.
     """
     if is_refusal(answer):
         return WITHHOLD
@@ -330,7 +329,7 @@ def gate(answer: str, passages: list[dict], entails, question: str = "") -> str:
     ]
     if not kept:
         return WITHHOLD
-    # Fluent body first; all supporting sources listed once at the end.
+    # put citations at the end so the answer reads more naturally
     body = " ".join(
         (wording if wording.endswith((".", "!", "?")) else f"{wording}.")
         for wording, _rows in kept
@@ -382,7 +381,7 @@ def load_texts(hits: list[dict]) -> list[dict]:
                     "page_number": int(page_number),
                     "text": str(text),
                 }
-    # Keep hybrid-rank order so the writer prompt is stable across runs.
+    # keep retrieval order for the prompt
     return [by_id[str(hit["chunk_id"])] for hit in hits if str(hit["chunk_id"]) in by_id]
 
 
@@ -391,7 +390,7 @@ _entails = None
 
 
 def load_writer():
-    """Return the one Qwen tokenizer and model for this process."""
+    """Load Qwen once and reuse it for later calls."""
     global _writer
     if _writer is not None:
         return _writer
@@ -482,7 +481,7 @@ def _load_entails():
 
 
 def entailment_checker():
-    """Return the checker. DeBERTa loads on the first call, then stays loaded."""
+    """Lazy DeBERTa wrapper — loads on first real call."""
 
     def entails(premise: str, hypothesis: str) -> bool:
         global _entails

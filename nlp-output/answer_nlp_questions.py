@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Run NLP proposal questions 6–11 into nlp-output/.
+"""Run proposal NLP questions 6-11 and write artifacts under nlp-output/.
 
     uv run python nlp-output/answer_nlp_questions.py
     NLP_QUESTIONS=8,9,10,11 uv run python nlp-output/answer_nlp_questions.py
     LIVE=1 NLP_QUESTIONS=6,8,9 uv run python nlp-output/answer_nlp_questions.py
 
-Q8/Q10/Q11 local demos always run without GPU. Q6/Q7 need AWS indexes.
-LIVE=1 enables live Qwen/DeBERTa sample runs for Q8/Q9.
+Q8/Q10/Q11 local demos always run (no GPU). Q6/Q7 need the AWS indexes.
+LIVE=1 turns on live Qwen/DeBERTa sample runs for Q8/Q9.
 """
 
 from __future__ import annotations

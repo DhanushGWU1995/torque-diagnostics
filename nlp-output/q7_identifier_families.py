@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Proposal Q7 — fault / part / procedure identifiers in one vs many families.
+"""Proposal Q7: fault / part / procedure ids in one family vs many.
 
-Reads passage Parquet under the chunks prefix. Writes:
-
-    nlp-output/q7_identifier_families.csv
-    nlp-output/q7_summary.csv
-    nlp-output/q7_shared_vs_unique.png
+Reads passage parquet under the chunks prefix. Writes:
+  nlp-output/q7_identifier_families.csv
+  nlp-output/q7_summary.csv
+  nlp-output/q7_shared_vs_unique.png
 
     uv run python nlp-output/q7_identifier_families.py
 """

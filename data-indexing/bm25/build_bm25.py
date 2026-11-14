@@ -1,27 +1,24 @@
 #!/usr/bin/env python3
 """Build one BM25 word index per equipment folder.
 
-This reads the token Parquet written by build_tokens.py. It does not open
-the PDFs and it does not embed the rows. The question is tokenized with
-the same BM25 tokenizer used to build the file, so a fault code, a
-document id, and a hyphenated phrase such as flange-mounting stay whole.
+Reads the token parquet from build_tokens.py. Does not open PDFs and does
+not embed anything. Queries use the same BM25 tokenizer as the index so
+fault codes, document ids, and hyphenated phrases like flange-mounting
+stay whole.
 
-Set INDEX_FAMILY to one folder for a test. INDEX_FAMILY=all writes every
-folder. A folder that already has a finished index is skipped. library is
-large, so run it after the smaller folders have stored.
-
-Credentials come from the environment. This file does not contain an
-access key.
+INDEX_FAMILY picks one folder for a test; INDEX_FAMILY=all writes every
+folder. Finished indexes are skipped unless REBUILD=1. library is large,
+so run it after the smaller folders. Credentials come from the
+environment (no access key in this file).
 
     INDEX_FAMILY=ACS880-11 uv run python data-indexing/bm25/build_bm25.py
 
-On the EC2 instance, from ~/dl-venv/nlp_project:
+On EC2 from ~/dl-venv/nlp_project:
 
     INDEX_FAMILY=ACS880-11 ~/dl-venv/bin/python data-indexing/bm25/build_bm25.py
 
-Each folder is written to
-
-    s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/index/bm25/asset_family=<family>.pkl
+Writes to:
+  s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/index/bm25/asset_family=<family>.pkl
 """
 
 from __future__ import annotations

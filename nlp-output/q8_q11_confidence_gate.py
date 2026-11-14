@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Proposal Q8 + Q11 — cite vs drop, and copied-sentence vs DeBERTa.
+"""Proposal Q8 + Q11: cite vs drop, and copied-sentence vs DeBERTa.
 
-Always writes local gate demos (no GPU). With LIVE=1, also runs the four
-hand-checked samples through chat_service (needs GPU + S3 indexes).
+Always writes local gate demos (no GPU needed). With LIVE=1, also runs
+the hand-checked samples through chat_service (needs GPU + S3 indexes).
 
     uv run python nlp-output/q8_q11_confidence_gate.py
     LIVE=1 uv run python nlp-output/q8_q11_confidence_gate.py
@@ -32,7 +32,7 @@ def _never_entail(_premise: str, _hypothesis: str) -> bool:
 
 
 def local_demos() -> list[dict]:
-    """Deterministic gate cases that answer Q8/Q11 without calling models."""
+    """Fixed gate cases for Q8/Q11 so we can demo without loading models."""
     page = {
         "chunk_id": "demo:0017:000",
         "document_id": "3AXD50000349838",

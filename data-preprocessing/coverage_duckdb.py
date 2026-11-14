@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
-"""Count what the Parquet shards contain, per equipment folder.
+"""Coverage report over finished passage parquet, per equipment folder.
 
-Polars writes each shard. DuckDB reads those finished shards and reports
-how many passages, tracing pages, fault codes, parts, and procedures each
-family actually stored. It does not answer a technician question. The
-chatbot reads the BM25 and embedding indexes, not this report.
+Polars wrote the shards; DuckDB reads them and counts passages, tracing
+pages, fault codes, parts, and procedures per family. This is EDA /
+coverage only — it does not answer technician questions. The chatbot
+reads the BM25 + embedding indexes, not this report.
 
-Credentials come from the environment. This file does not contain an
-access key. From a clone of the repo, at the repository root:
+Credentials come from the environment (no access key in this file).
 
     uv sync
     uv run python data-preprocessing/coverage_duckdb.py
 
-The report is written to coverage.txt in the working directory. Run it
-once, after chunking has finished.
+Writes coverage.txt in the working directory. Run once after chunking
+is done.
 """
 
 from __future__ import annotations

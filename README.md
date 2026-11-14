@@ -1,10 +1,17 @@
 # torque-diagnostics
 
-Technician assistant for ABB drive manuals. Answers only from indexed English manual pages, cites `document_id` and `page_number`, and withholds off-topic or unsupported asks with a **domain-restricted refusal** (ABB drive / motor / related equipment manuals indexed for Torque Diagnostics).
+DATS 6450 final project — technician assistant over ABB drive manuals.
+Answers only from indexed English manual pages, cites `document_id` and
+`page_number`, and withholds off-topic or unsupported asks with a
+domain-restricted refusal (ABB drive / motor / related equipment manuals
+indexed for Torque Diagnostics).
 
-**Text RAG path (current):** PDF download → text passages → coverage / EDA → tokens → BM25 → embeddings → hybrid search → Qwen reply → DeBERTa confidence gate → evaluation + Streamlit chat UI.
+Text RAG path (current): PDF download → text passages → coverage / EDA →
+tokens → BM25 → embeddings → hybrid search → Qwen reply → DeBERTa
+confidence gate → evaluation + Streamlit chat UI.
 
-Tables and figure/image corpus extraction are **not** in this run. The index is the PDF text layer only.
+Tables and figure/image corpus extraction are not in this run. The index
+is the PDF text layer only.
 
 ## Install
 

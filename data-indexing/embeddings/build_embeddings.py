@@ -1,29 +1,24 @@
 #!/usr/bin/env python3
-"""Build one embedding index per equipment folder.
+"""Build one BGE embedding index per equipment folder.
 
-This reads passage Parquet under chunks/asset_family=<family>/. It does
-not open the PDFs and it does not change the BM25 index. The vectors come
-from one English sentence-transformer, BAAI/bge-base-en-v1.5. A row is
-embedded as stored. A question is embedded with the model's retrieval
-prefix so the two vectors can be compared by cosine similarity. A folder
-that already has a finished embedding file is skipped.
+Reads passage parquet under chunks/asset_family=<family>/. Does not open
+PDFs and does not touch the BM25 index. Model is BAAI/bge-base-en-v1.5.
+Passages are embedded as stored; questions get the retrieval prefix so we
+can compare with cosine similarity. Folders that already have a finished
+file are skipped unless REBUILD=1.
 
-Set INDEX_FAMILY to one folder for a test. INDEX_FAMILY=all writes every
-folder. A folder that already has a finished index is skipped. library is
-large, so run it after the smaller folders have stored.
-
-Credentials come from the environment. This file does not contain an
-access key.
+INDEX_FAMILY picks one folder for a test; INDEX_FAMILY=all writes every
+folder. library is large, so run it after the smaller ones. Credentials
+come from the environment (no access key in this file).
 
     INDEX_FAMILY=ACS880-11 uv run python data-indexing/embeddings/build_embeddings.py
 
-On the EC2 instance, from ~/dl-venv/nlp_project:
+On EC2 from ~/dl-venv/nlp_project:
 
     INDEX_FAMILY=ACS880-11 ~/dl-venv/bin/python data-indexing/embeddings/build_embeddings.py
 
-Each folder is written to
-
-    s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/index/embeddings/asset_family=<family>.parquet
+Writes to:
+  s3://dats-nlp/dhanush.mathivanan@gwu.edu/torque-diagnostics/index/embeddings/asset_family=<family>.parquet
 """
 
 from __future__ import annotations

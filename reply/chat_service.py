@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""One chat turn: hybrid retrieve, write, gate, and optional citation scores.
+"""One chat turn: hybrid retrieve, write, gate, optional citation scores.
 
-Used by the Streamlit UI. Keeps the same path as reply/evaluate_answers.py.
+Used by the Streamlit UI. Same answer path as reply/evaluate_answers.py
+so the UI and the CLI eval stay in sync.
 """
 
 from __future__ import annotations
@@ -49,15 +50,15 @@ def _note(on_progress: ProgressFn | None, stage: str, detail: str) -> None:
 
 
 def warm_models(on_progress: ProgressFn | None = None) -> dict[str, str]:
-    """Load BGE and Qwen into this process once. DeBERTa loads on first partial paraphrase."""
+    """Load BGE + Qwen once in this process. DeBERTa loads on first paraphrase."""
     if be._encoder is None:
         _note(
             on_progress,
             "model load",
-            "Loading BGE (BAAI/bge-base-en-v1.5) from disk cache → GPU…",
+            "loading BGE (BAAI/bge-base-en-v1.5) from disk cache to GPU...",
         )
     else:
-        _note(on_progress, "model load", "BGE already in GPU — reusing")
+        _note(on_progress, "model load", "BGE already in GPU, reusing")
     load_encoder()
     _note(on_progress, "model load", "BGE ready")
 
@@ -65,10 +66,10 @@ def warm_models(on_progress: ProgressFn | None = None) -> dict[str, str]:
         _note(
             on_progress,
             "model load",
-            "Loading Qwen2.5-7B-Instruct from disk cache → GPU (slow first time)…",
+            "loading Qwen2.5-7B-Instruct from disk cache to GPU (slow first time)...",
         )
     else:
-        _note(on_progress, "model load", "Qwen already in GPU — reusing")
+        _note(on_progress, "model load", "Qwen already in GPU, reusing")
     load_writer()
     _note(on_progress, "model load", "Qwen ready")
 
@@ -77,10 +78,10 @@ def warm_models(on_progress: ProgressFn | None = None) -> dict[str, str]:
         _note(
             on_progress,
             "model load",
-            "DeBERTa not loaded yet — will load from disk on first partial paraphrase",
+            "DeBERTa not loaded yet — loads from disk on first partial paraphrase",
         )
     else:
-        _note(on_progress, "model load", "DeBERTa already in GPU — reusing")
+        _note(on_progress, "model load", "DeBERTa already in GPU, reusing")
     return {
         "encoder": "ready",
         "writer": "ready",
@@ -123,7 +124,7 @@ def run_turn(
     show_passages: int = SHOW_PASSAGES,
     on_progress: ProgressFn | None = None,
 ) -> dict:
-    """Answer one technician question and return UI fields."""
+    """Run one question and pack the fields the UI expects."""
     question = question.strip()
     if not question:
         raise ValueError("question is empty")
@@ -135,32 +136,32 @@ def run_turn(
         _note(
             on_progress,
             "route",
-            f"Demo override — forcing folder {families[0]} (wrong-family probe)…",
+            f"demo override: forcing folder {families[0]} (wrong-family probe)",
         )
     else:
-        _note(on_progress, "route", "Choosing equipment folder(s) from the question…")
+        _note(on_progress, "route", "picking folder(s) from the question text")
         families = route_families(question)
-    _note(on_progress, "route", f"Folders: {', '.join(families)}")
+    _note(on_progress, "route", f"folders: {', '.join(families)}")
 
     _note(
         on_progress,
         "retrieve",
-        f"Hybrid BM25 + embedding search (top {retrieve_k})…",
+        f"hybrid BM25 + embedding search, top {retrieve_k}",
     )
     hits = retrieve(question, families, retrieve_k)
-    _note(on_progress, "retrieve", f"Got {len(hits)} ranked hits")
+    _note(on_progress, "retrieve", f"got {len(hits)} hits")
 
-    _note(on_progress, "passages", "Loading passage text for ranked hits…")
+    _note(on_progress, "passages", "loading passage text for the hits")
     passages = load_texts(hits)
-    _note(on_progress, "passages", f"Loaded text for {len(passages)} passages")
+    _note(on_progress, "passages", f"loaded text for {len(passages)} passages")
 
     if not passages:
         released, confidence, deberta_calls, deberta_keeps = WITHHOLD, "withheld", 0, 0
-        _note(on_progress, "answer", "No passage text — withholding")
+        _note(on_progress, "answer", "no passage text, withholding")
     else:
-        _note(on_progress, "write", "Qwen drafting the answer from retrieved pages…")
+        _note(on_progress, "write", "Qwen drafting from retrieved pages")
         draft_text = draft(question, passages)
-        _note(on_progress, "write", f"Draft ready ({len(draft_text)} chars)")
+        _note(on_progress, "write", f"draft ready ({len(draft_text)} chars)")
 
         calls = {"count": 0, "keeps": 0}
         base_entails = entailment_checker()
@@ -170,7 +171,7 @@ def run_turn(
                 _note(
                     on_progress,
                     "deberta",
-                    "Loading DeBERTa-v3 MNLI from disk cache → GPU (first paraphrase)…",
+                    "loading DeBERTa-v3 MNLI from cache to GPU (first paraphrase)",
                 )
             calls["count"] += 1
             kept = base_entails(premise, hypothesis)
@@ -179,12 +180,12 @@ def run_turn(
             _note(
                 on_progress,
                 "deberta",
-                f"Call #{calls['count']}: "
-                f"{'entailed — keep' if kept else 'not entailed — drop'}",
+                f"call #{calls['count']}: "
+                f"{'entailed, keep' if kept else 'not entailed, drop'}",
             )
             return kept
 
-        _note(on_progress, "gate", "Confidence gate (copy / DeBERTa / withhold)…")
+        _note(on_progress, "gate", "running confidence gate (copy / DeBERTa / withhold)")
         released = gate(draft_text, passages, counting_entails, question)
         confidence = confidence_label(released, calls["keeps"])
         deberta_calls = calls["count"]
@@ -193,13 +194,13 @@ def run_turn(
             _note(
                 on_progress,
                 "gate",
-                f"Done — confidence={confidence} (DeBERTa not needed)",
+                f"done, confidence={confidence} (no DeBERTa needed)",
             )
         else:
             _note(
                 on_progress,
                 "gate",
-                f"Done — confidence={confidence}, "
+                f"done, confidence={confidence}, "
                 f"deberta_calls={deberta_calls}, keeps={deberta_keeps}",
             )
 
@@ -208,7 +209,7 @@ def run_turn(
 
     metrics = None
     if gold is not None or expect_withhold:
-        _note(on_progress, "metrics", "Scoring cited pages against hand-checked gold…")
+        _note(on_progress, "metrics", "scoring citations vs hand-checked gold")
         scores = prediction_scores(cited, gold or [], withheld, expect_withhold)
         metrics = {
             "precision": float(scores["precision"]),
@@ -225,7 +226,7 @@ def run_turn(
             f"f1={metrics['f1']:.3f}",
         )
 
-    _note(on_progress, "done", "Answer pipeline finished")
+    _note(on_progress, "done", "finished")
     return {
         "question": question,
         "folders": families,

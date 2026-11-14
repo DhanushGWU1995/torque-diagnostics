@@ -1,7 +1,7 @@
-"""One Hugging Face folder for every model in this project.
+"""One Hugging Face cache folder for every model in this project.
 
-Weights live in models/huggingface. A model that is already there is read
-from disk. A model that is missing is downloaded once, and every later
+Weights live under models/huggingface. If a model is already there we
+read it from disk. If it's missing we download once, and every later
 script in this checkout reuses that copy.
 """
 
@@ -18,14 +18,14 @@ os.environ["SENTENCE_TRANSFORMERS_HOME"] = str(CACHE / "sentence-transformers")
 
 
 def cache_miss(exc: BaseException) -> bool:
-    """True when the weights are not in the project folder yet."""
+    """True if the model isn't cached locally yet."""
     if type(exc).__name__ in {"LocalEntryNotFoundError", "EntryNotFoundError"}:
         return True
     return isinstance(exc, OSError)
 
 
 def from_pretrained(cls, name: str, **kwargs):
-    """Load a transformers class from the project folder, downloading it once."""
+    """Try local cache first; download once if missing."""
     try:
         return cls.from_pretrained(name, local_files_only=True, **kwargs), "cache"
     except Exception as exc:
@@ -36,7 +36,7 @@ def from_pretrained(cls, name: str, **kwargs):
 
 
 def sentence_transformer(name: str, device: str):
-    """Load the embedding model from the project folder, downloading it once."""
+    """Load SentenceTransformer from the project cache (download if needed)."""
     from sentence_transformers import SentenceTransformer
 
     folder = str(CACHE / "sentence-transformers")
